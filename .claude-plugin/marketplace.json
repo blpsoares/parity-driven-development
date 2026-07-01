@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "parity-driven-development",
+  "description": "PDD — Parity-Driven Development. Framework para refactor de legados com paridade comportamental rastreável.",
+  "owner": {
+    "name": "Bryan Soares",
+    "url": "https://github.com/blpsoares"
+  },
+  "plugins": [
+    {
+      "name": "pdd",
+      "description": "PDD (Parity-Driven Development) — framework para refactor/rewrite/port de sistemas legados. Provê /audit-bootstrap, /audit-new, /audit-investigate, /audit-resolve, /audit-compare, /audit-pr, /audit-qa e /audit-status, mais a CLI `pdd` de painel.",
+      "author": {
+        "name": "Bryan Soares"
+      },
+      "category": "development",
+      "source": "./",
+      "homepage": "https://github.com/blpsoares/parity-driven-development"
+    }
+  ]
+}

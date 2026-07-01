@@ -1,0 +1,16 @@
+{
+  "name": "parity-driven-development",
+  "version": "2.0.0",
+  "description": "PDD — Parity-Driven Development. Framework para refactor de legados. Inclui a CLI `pdd` de painel de progresso.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "pdd": "scripts/pdd/index.ts"
+  },
+  "scripts": {
+    "pdd": "bun run scripts/pdd/index.ts",
+    "test": "bun test scripts/pdd"
+  },
+  "author": "Bryan Soares",
+  "license": "MIT"
+}
