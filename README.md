@@ -140,6 +140,18 @@ Status is one of `not-started` · `finding-open` · `verified`.
 A zero-dependency **Bun** tool that renders the same state as `/audit-status`, but as a
 terminal panel you can keep open.
 
+### Enabling the `pdd` command
+
+Claude Code plugins can't register a binary on your PATH, so install the stable wrapper once
+(it resolves the installed plugin version dynamically and survives `claude plugin update`):
+
+```
+bash ~/.claude/plugins/cache/parity-driven-development/pdd/*/scripts/install-cli.sh
+# installs `pdd` to ~/.local/bin (pass another dir as $1 to override)
+```
+
+Then, from any project that ran `/audit-bootstrap`:
+
 ```
 pdd board            # single ANSI snapshot: findings by state, coverage %, confidence, active tasks
 pdd board --watch    # live — re-renders whenever .audit/ changes (fs.watch)

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# pdd — Parity-Driven Development CLI (stable wrapper)
+#
+# Claude Code plugins cannot register a binary on your PATH, so this wrapper
+# bridges the gap: it resolves the installed plugin's CLI dynamically (picking
+# the highest installed version) so it keeps working across `claude plugin
+# update`. Install it once to a PATH directory (see scripts/install-cli.sh).
+set -euo pipefail
+
+root="${HOME}/.claude/plugins/cache/parity-driven-development/pdd"
+cli="$(ls -d "${root}"/*/scripts/pdd/index.ts 2>/dev/null | sort -V | tail -n 1 || true)"
+
+if [ -z "${cli:-}" ]; then
+  echo "pdd: plugin CLI not found under ${root}" >&2
+  echo "Install the plugin first: claude plugin install pdd@parity-driven-development" >&2
+  exit 127
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "pdd: 'bun' is required to run the dashboard but was not found on PATH." >&2
+  exit 127
+fi
+
+exec bun run "${cli}" "$@"
