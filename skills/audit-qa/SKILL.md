@@ -78,9 +78,11 @@ the first run for that environment, shows status and handles feedback on later r
     — offer the file-checklist fallback (Section 7) and pause for the dev's choice.
   - "Disabled": use the **file-checklist** QA surface (Section 7) throughout.
 
-### 2. PR-open validation (blocking — the inverted golden rule)
+### 2. PR-open validation (blocking — ONLY for deployment environments)
 
-The fix must be reachable on an **open** PR so QA has something to test.
+**Skip this whole section when `environment = local`** — local QA runs on localhost BEFORE any PR
+exists (it is the pre-PR gate). This validation applies only when `environment` is a deployment
+env (dev/staging/prod): the fix must be reachable on an **open** PR / deployed there.
 
 1. Find the PR for branch `audit/NNN-<slug>`:
    `gh pr list --head audit/NNN-<slug> --json number,state,url,title` (run inside the finding's
