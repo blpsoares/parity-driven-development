@@ -120,21 +120,73 @@ installing just scaffolds the right command files.
 curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <codex|cursor|copilot|gemini|all>
 ```
 
-**Per agent:**
+Already have the CLI? **`pdd init`** opens an interactive picker (specify-init style) — select your
+agents and scope, and it installs into each.
 
-| Agent | Install | Output | Invoke |
-|---|---|---|---|
-| **Claude Code** | `/plugin marketplace add blpsoares/parity-driven-development` + `claude plugin install pdd@parity-driven-development --scope project` | plugin | `/audit-new` |
-| **Codex** | `install.sh codex` *(or `pdd adapt codex`)* | `~/.codex/prompts/audit-*.md` (home) | `/audit-new` |
-| **Cursor** | `install.sh cursor` | `.cursor/commands/audit-*.md` | `/audit-new` |
-| **Copilot** (VS Code/JetBrains) | `install.sh copilot` | `.github/prompts/audit-*.prompt.md` | `/audit-new` |
-| **Gemini CLI** | `install.sh gemini` | `.gemini/commands/audit-*.toml` | `/audit-new` |
-| **Anything else** | tell it to *fetch and follow* [`INSTALL.md`](INSTALL.md), or read [`AGENTS.md`](AGENTS.md) + `skills/` | — | read the SKILL.md |
+**Per agent** — expand your agent:
 
-Already have the CLI? **`pdd init`** auto-detects your installed agents and installs into all of them
-(add `--global` for your home config). Notes: the GitHub **Copilot CLI** does not yet support user
-slash commands (only the IDEs do); for agents that read `AGENTS.md` (including Antigravity), the
-generic guide documents the whole method.
+<details>
+<summary><b>Claude Code</b> — native plugin</summary>
+
+```bash
+/plugin marketplace add blpsoares/parity-driven-development
+claude plugin install pdd@parity-driven-development --scope project
+```
+
+Invoke with `/audit-bootstrap`, `/audit-new`, … Installs as a first-class plugin (skills + `pdd` CLI + the opt-in SessionStart tip).
+</details>
+
+<details>
+<summary><b>Codex</b></summary>
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- codex
+# or, if you have the CLI:  pdd adapt codex
+```
+
+Writes to **`~/.codex/prompts/audit-*.md`** (Codex only reads prompts from your home, not the repo). Invoke with `/audit-new`. Uses `$ARGUMENTS`.
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- cursor
+# or:  pdd adapt cursor        (add --global for ~/.cursor)
+```
+
+Writes to **`.cursor/commands/audit-*.md`** in the project (committable, shared with your team). Invoke with `/audit-new`.
+</details>
+
+<details>
+<summary><b>GitHub Copilot</b> (VS Code / JetBrains)</summary>
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- copilot
+# or:  pdd adapt copilot
+```
+
+Writes to **`.github/prompts/audit-*.prompt.md`**. Invoke with `/audit-new` in the Chat view. ⚠️ The Copilot **CLI** does not yet support user slash commands — IDEs only.
+</details>
+
+<details>
+<summary><b>Gemini CLI</b></summary>
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- gemini
+# or:  pdd adapt gemini         (add --global for ~/.gemini)
+```
+
+Writes to **`.gemini/commands/audit-*.toml`**. Invoke with `/audit-new`. Uses `{{args}}`. Run `/commands reload` after installing.
+</details>
+
+<details>
+<summary><b>Antigravity / any other agent</b></summary>
+
+Tell the agent to *fetch and follow* [`INSTALL.md`](INSTALL.md), or point it at [`AGENTS.md`](AGENTS.md)
++ the `skills/` directory — the SKILL.md files are self-contained instructions. Where a file says
+`$ARGUMENTS`, that is where the user's arguments go.
+</details>
 
 ## Confidence tiers
 
