@@ -14,6 +14,7 @@ import { readMergedAuditState, pruneStaleActivity } from "./state";
 import { renderBoard } from "./render";
 import { runTui } from "./tui";
 import { adaptAll, type Harness } from "./adapt";
+import { runMenu } from "./prompt";
 
 /** Walk up from `start` looking for a directory that contains `.audit`. */
 function findAuditUpwards(start: string): string | null {
@@ -100,31 +101,71 @@ function detectHarnesses(all: Harness[], projectRoot: string): Harness[] {
   return all.filter((h) => map[h]);
 }
 
+/** Install PDD commands — interactive (specify-init style) when run in a TTY. */
+async function runInit(args: string[]): Promise<void> {
+  const all: Harness[] = ["codex", "cursor", "copilot", "gemini"];
+  const projectRoot = process.cwd();
+  const skillsDir = join(import.meta.dir, "..", "..", "skills");
+  const explicit = args.slice(1).filter((a): a is Harness => all.includes(a as Harness));
+  const detected = detectHarnesses(all, projectRoot);
+
+  let targets: Harness[];
+  let global = args.includes("--global");
+
+  // Non-interactive: explicit harness args, a piped stdin, or an explicit scope flag.
+  if (explicit.length > 0 || !process.stdin.isTTY || args.includes("--global")) {
+    targets = explicit.length > 0 ? explicit : detected;
+    if (targets.length === 0) {
+      process.stdout.write(
+        "No agent detected. Try: pdd init codex | cursor | copilot | gemini\n",
+      );
+      return;
+    }
+  } else {
+    // Interactive.
+    const items = all.map((h) => ({ label: h, hint: detected.includes(h) ? "detected" : "" }));
+    const preChecked = all.map((h, i) => (detected.includes(h) ? i : -1)).filter((i) => i >= 0);
+    const picked = await runMenu("Install PDD commands for which agents?", items, {
+      multi: true,
+      preChecked,
+    });
+    if (!picked || picked.length === 0) {
+      process.stdout.write("Cancelled — nothing installed.\n");
+      return;
+    }
+    targets = picked.map((i) => all[i]);
+
+    // Scope only matters if a non-Codex agent is selected (Codex is always home).
+    if (targets.some((t) => t !== "codex")) {
+      const scope = await runMenu(
+        "Install scope?",
+        [{ label: "project", hint: projectRoot }, { label: "global", hint: "your home config" }],
+        { multi: false },
+      );
+      if (scope === null) {
+        process.stdout.write("Cancelled — nothing installed.\n");
+        return;
+      }
+      global = scope[0] === 1;
+    }
+  }
+
+  process.stdout.write("\n");
+  for (const harness of targets) {
+    const written = adaptAll(harness, { skillsDir, projectRoot, global });
+    const where = harness === "codex" ? "~/.codex (home)" : global ? "home config" : "project";
+    process.stdout.write(`✅ ${harness} → ${written.length} command(s) in ${where}\n`);
+  }
+  process.stdout.write("\nInvoke /audit-bootstrap in your agent to begin.\n");
+}
+
 /** Parse argv and dispatch. */
-function main(argv: string[]): void {
+async function main(argv: string[]): Promise<void> {
   const args = argv.slice(2);
   const command = args[0] ?? "tui"; // no command → interactive TUI
 
   if (command === "init") {
-    const all: Harness[] = ["codex", "cursor", "copilot", "gemini"];
-    const global = args.includes("--global");
-    const projectRoot = process.cwd();
-    const skillsDir = join(import.meta.dir, "..", "..", "skills");
-    const explicit = args.slice(1).filter((a): a is Harness => all.includes(a as Harness));
-    const targets = explicit.length > 0 ? explicit : detectHarnesses(all, projectRoot);
-    if (targets.length === 0) {
-      process.stdout.write(
-        "No agent detected. Install for a specific one, e.g.:\n" +
-          "  pdd init codex        pdd init cursor       pdd init gemini\n" +
-          "  pdd init copilot      pdd adapt <harness> --global\n",
-      );
-      return;
-    }
-    for (const harness of targets) {
-      const written = adaptAll(harness, { skillsDir, projectRoot, global });
-      process.stdout.write(`✅ ${harness}: ${written.length} command file(s)\n`);
-    }
-    process.stdout.write("\nStart a project with: /audit-bootstrap\n");
+    await runInit(args);
     return;
   }
 
@@ -191,4 +232,7 @@ function main(argv: string[]): void {
   }
 }
 
-main(process.argv);
+main(process.argv).catch((err) => {
+  process.stderr.write(`pdd: ${err?.message ?? err}\n`);
+  process.exit(1);
+});
