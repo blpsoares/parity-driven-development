@@ -140,6 +140,12 @@ Status is one of `not-started` · `finding-open` · `verified`.
 A zero-dependency **Bun** tool that renders the same state as `/audit-status`, but as a
 terminal panel you can keep open.
 
+![pdd dashboard](demo/pdd.gif)
+
+> The GIF above is generated from [`demo/pdd.tape`](demo/pdd.tape) with
+> [VHS](https://github.com/charmbracelet/vhs) — reproducible, always matching the current UI.
+> See [`demo/README.md`](demo/README.md) to regenerate it.
+
 ### Enabling the `pdd` command
 
 Claude Code plugins can't register a binary on your PATH, so install the stable wrapper once
