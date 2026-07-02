@@ -211,7 +211,7 @@ The coverage table has exactly these columns:
 |---|---|---|---|---|
 ```
 
-Status is one of: `not-started` | `finding-open` | `verified`. Seed everything as `not-started`; `/audit-new` moves a row to `finding-open` and `/audit-resolve` moves it to `verified` with the achieved tier.
+Status is one of: `not-started` | `finding-open` | `resolved` | `verified`. Seed everything as `not-started`; `/audit-new` moves a row to `finding-open`, `/audit-resolve` moves it to `resolved` (fix done locally, NOT yet guaranteed), and `/audit-qa` promotes it to `verified` only after QA approval **and** merge. Coverage % counts `verified` only.
 
 **Section 16 — PDD workflow**
 - Nothing to ask — just copy from the template. It is a fixed part of the model.

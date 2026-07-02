@@ -116,13 +116,17 @@ export function renderBoard(state: AuditState): string {
   lines.push(color.bold(color.cyan("PDD Board — Parity-Driven Development")));
   lines.push(rule);
 
-  // Coverage progress bar.
+  // Coverage progress bar. Only QA-approved-and-merged rows count as verified;
+  // locally-resolved rows are shown separately as "pending" (not guaranteed).
   const pct = Math.round(state.coveragePct * 10) / 10;
   const verified = state.coverage.filter((r) => r.status === "verified").length;
+  const pending = state.coverage.filter((r) => r.status === "resolved").length;
   const total = state.coverage.length;
   lines.push(
     `${color.bold("Coverage")}  ${progressBar(pct)}  ${color.bold(`${pct}%`)} ` +
-      color.dim(`(${verified}/${total} verified)`),
+      color.dim(`(${verified}/${total} verified`) +
+      (pending > 0 ? color.yellow(` · +${pending} pending QA`) : "") +
+      color.dim(")"),
   );
   lines.push("");
 

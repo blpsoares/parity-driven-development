@@ -249,10 +249,10 @@ parsed by `/audit-status` and the `pdd` CLI). It is seeded here at bootstrap.
 | export CSV | — | not-started | — | — |
 ```
 
-- **Status**: `not-started` | `finding-open` | `verified`.
+- **Status**: `not-started` | `finding-open` | `resolved` | `verified`.
 - Seeded by `/audit-bootstrap` from `PROJECT_AREAS` + `REFERENCE_CASES` (every row `not-started`).
-- Updated by `/audit-new` (→ `finding-open`) and `/audit-resolve` (→ `verified`, with the achieved tier).
-- **Coverage %** = verified rows / total rows, displayed by `/audit-status` and `pdd board`.
+- Updated by `/audit-new` (→ `finding-open`), `/audit-resolve` (→ `resolved`, fix done locally but NOT guaranteed), and `/audit-qa` (→ `verified`, only after QA approval **and** merge).
+- **Coverage %** = `verified` rows / total rows (locally-`resolved` rows show as *pending QA*, not counted). Displayed by `/audit-status` and `pdd board`.
 
 Seeded baseline for this project:
 

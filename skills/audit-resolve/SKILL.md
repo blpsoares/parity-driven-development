@@ -227,7 +227,8 @@ Write the file to `.audit/findings/<folder>/resolution.md`. Save inside the work
 
 ### 9. Update the coverage map
 
-In `.audit/coverage.md`, find the row for this finding's behavior/area and set it to `verified` with the achieved tier. The table columns are exactly:
+In `.audit/coverage.md`, find the row for this finding's behavior/area and set it
+to **`resolved`** (NOT `verified`) with the achieved tier. The table columns are exactly:
 
 ```markdown
 | Behavior / Area | Reference case | Status | Tier | Finding |
@@ -235,12 +236,16 @@ In `.audit/coverage.md`, find the row for this finding's behavior/area and set i
 
 Example transition:
 ```markdown
-| checkout: total calculation | order #123 | verified | tier-3 | 007 |
+| checkout: total calculation | order #123 | resolved | tier-3 | 007 |
 ```
 
-- `Status` becomes `verified`.
+- `Status` becomes **`resolved`** — the fix is done locally but is **not yet guaranteed**.
 - `Tier` becomes the achieved tier (must match `evidence.confidence`).
 - If no row exists for this behavior yet, add one.
+
+> **Why not `verified` here?** Coverage `%` is a *guarantee* metric. A behavior is only
+> `verified` once QA has explicitly approved **and** the PR is merged — that promotion is done
+> by `/audit-qa`, never by `/audit-resolve`. Resolving locally is a claim, not a guarantee.
 
 ### 10. Move the folder to resolved/
 
@@ -304,7 +309,7 @@ Next step: run /audit-compare NNN (if not done) and then /audit-pr NNN to open t
 - ALWAYS enforce the confidence gate: do not mark resolved below `CONFIDENCE_MIN`. Point the dev to `/audit-compare` or screenshots when evidence is short.
 - ALWAYS write the machine-readable `evidence:` block into `resolution.md`.
 - ALWAYS operate inside the finding's worktree when `worktree:` is a path; only create the `audit/NNN-<slug>` branch when `worktree:` is `none`.
-- ALWAYS update `coverage.md` to `verified` with the achieved tier.
+- ALWAYS update `coverage.md` to `resolved` (NOT `verified`) with the achieved tier — only `/audit-qa` promotes a row to `verified`, after QA approval + merge.
 - ALWAYS confirm the plan with the dev BEFORE modifying code.
 - ALWAYS reference the reference file/spec that motivated the change.
 - ALWAYS preserve behavior in existing tests — if an old test breaks, treat it as a regression signal.

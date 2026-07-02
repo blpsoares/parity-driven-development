@@ -283,3 +283,24 @@ test("dedupeActivity keeps the freshest duplicate", () => {
   expect(deduped).toHaveLength(1);
   expect(deduped[0].ageMs).toBe(1000);
 });
+
+test("coveragePct counts only verified, not resolved (pending QA)", () => {
+  const root = mkdtempSync(join(tmpdir(), "pdd-cov-"));
+  const auditDir = join(root, ".audit");
+  mkdirSync(auditDir, { recursive: true });
+  writeFileSync(
+    join(auditDir, "coverage.md"),
+    [
+      "| Behavior / Area | Reference case | Status | Tier | Finding |",
+      "| --- | --- | --- | --- | --- |",
+      "| a | c1 | verified | tier-3 | 001 |",
+      "| b | c2 | resolved | tier-3 | 002 |", // done locally, NOT guaranteed
+      "| c | c3 | finding-open | tier-0 | 003 |",
+      "| d | c4 | not-started | — | — |",
+    ].join("\n"),
+  );
+  const state = readAuditState(auditDir);
+  rmSync(root, { recursive: true, force: true });
+  // Only 1 of 4 is verified → 25%. The 'resolved' row must NOT count.
+  expect(state.coveragePct).toBe(25);
+});

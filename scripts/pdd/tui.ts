@@ -360,14 +360,16 @@ export function bannerHeight(banner: string[]): number {
 export function summaryBanner(state: AuditState): string[] {
   const pct = Math.round((state.coveragePct ?? 0) * 10) / 10;
   const verified = state.coverage.filter((r) => r.status === "verified").length;
+  const pending = state.coverage.filter((r) => r.status === "resolved").length;
   const total = state.coverage.length;
 
   const fs = state.findings ?? [];
   const lc = (k: string) => fs.filter((f) => findingLifecycle(f) === k).length;
   const tier = (t: string) => fs.filter((f) => f.confidence === t).length;
 
+  const pendingTag = pending > 0 ? c.yellow(` +${pending} pending QA`) : "";
   return [
-    `${c.bold("Coverage")}  ${progressBar(pct)} ${c.bold(`${pct}%`)} ${c.dim(`(${verified}/${total})`)}`,
+    `${c.bold("Coverage")}  ${progressBar(pct)} ${c.bold(`${pct}%`)} ${c.dim(`(${verified}/${total} verified)`)}${pendingTag}`,
     `${c.bold("Confidence")}  ${c.red("t0:" + tier("tier-0"))}  ${c.yellow("t1:" + tier("tier-1"))}  ${c.magenta("t2:" + tier("tier-2"))}  ${c.green("t3:" + tier("tier-3"))}`,
     `${c.bold("Findings")}  ${c.red("open:" + lc("open"))}  ${c.yellow("in-progress:" + lc("in-progress"))}  ${c.green("done:" + lc("done"))}   ${c.cyan("worktrees:" + (state.worktrees?.length ?? 0))}   ${c.green("active:" + (state.activity?.length ?? 0))}`,
   ];

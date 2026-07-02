@@ -205,6 +205,16 @@ Status vocabulary (Notion `Test Status` / file markers): `Awaiting test` | `Appr
   Offer to set `qa-status: approved` in the finding's `README.md` frontmatter (only after the
   dev says yes). Do NOT merge and do NOT push anything.
 
+  **Coverage promotion (the ONLY place a row becomes `verified`):**
+  - Re-check the PR state with `gh pr view <n> --json state`.
+  - **If `state == "MERGED"` AND all cards `Approved`:** in `.audit/coverage.md`, set this
+    finding's behavior/area row `Status` to **`verified`** (keep the tier from the finding's
+    `evidence.confidence`). This is the only transition that increases the guaranteed coverage %.
+  - **If approved but NOT yet merged:** leave the row as `resolved` and tell the dev:
+    > "Coverage stays *pending* until you merge PR #X. After merging, run `/audit-qa NNN` once
+    > more to promote this area to `verified`."
+  - Never set `verified` on approval alone — approval **and** merge are both required.
+
 - **Mixed (some Approved + some Awaiting)**: report partial progress. Wait.
 
 - **At least one `Rejected`**: enter FEEDBACK mode (5.3).
