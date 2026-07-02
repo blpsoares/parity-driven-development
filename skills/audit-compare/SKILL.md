@@ -61,6 +61,25 @@ If the reference (legacy) system cannot be executed at all (MFA, no access, offl
 - If it is `none`: operate in the main checkout on branch `audit/NNN-<slug>` (or wherever the dev currently is) — do not create or switch branches here.
 - Never author commits and never switch branches on the dev's behalf.
 
+## Activity tracking (live presence)
+
+So the `pdd` dashboard can show what is running in real time (across parallel agents and worktrees), record a presence file when this skill STARTS and delete it when it FINISHES — including on early/abort exits.
+
+**On start** (run once the finding id is known — use the finding's absolute `worktree` path for `WT`, or the literal `root` when it is `none`):
+
+```bash
+mkdir -p .audit/activity
+printf '{"command":"audit-compare","finding":"NNN","worktree":"WT","startedAt":"%s","agent":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(git config user.name 2>/dev/null || whoami)" "$$" \
+  > ".audit/activity/audit-compare-NNN.json"
+```
+
+**On finish or abort** (always remove the same file):
+
+```bash
+rm -f ".audit/activity/audit-compare-NNN.json"
+```
+
 ### 4. Choose the execution mode and run the SAME operation on BOTH systems
 
 Determine which of the four modes fits, from the finding's area and BOOTSTRAP access. Confirm the plan with the dev before executing anything.
@@ -116,6 +135,7 @@ Report to the dev:
 - **Non-empty diff →** summarize the concrete differences (which fields/lines differ, reference value vs new value) in a few lines, and point back to `/audit-investigate` or `/audit-resolve` to close the gap.
 - If you fell back to visual: report **tier-1**, list the paired screenshots in `refs/`, and state the limitation that blocked execution.
 - Update the finding's `refs/` listing note. Do NOT change the finding `confidence` frontmatter or `.audit/coverage.md` yourself — `/audit-resolve` owns the tier promotion after confirming the full evidence block (parity_diff + characterization_test). Just surface the achieved evidence so `/audit-resolve` can record it.
+- **CLEANUP:** remove the presence file written in *Activity tracking* — `rm -f ".audit/activity/audit-compare-NNN.json"` — now that the skill is finishing (and also on any early/abort exit).
 
 ## Quality rules
 
@@ -126,3 +146,4 @@ Report to the dev:
 - ALWAYS write raw captures alongside the `.diff` so the evidence is reproducible.
 - An empty diff is a POSITIVE result (parity), not a failure — report it as tier-2 confirmation.
 - If the legacy system is unreachable, fall back to tier-1 visual and document the limitation — do not fabricate a diff and do not block the cycle.
+- The presence file `.audit/activity/audit-compare-NNN.json` MUST be removed on finish or abort.

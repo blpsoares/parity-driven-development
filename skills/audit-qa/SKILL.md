@@ -89,6 +89,25 @@ The fix must be reachable on an **open** PR so QA has something to test.
    - If `PREVIEW_MODE=local`: build local-branch-checkout instructions (Section 8) so QA can
      run the branch locally.
 
+## Activity tracking (live presence)
+
+So the `pdd` dashboard can show what is running in real time (across parallel agents and worktrees), record a presence file when this skill STARTS and delete it when it FINISHES — including on early/abort exits.
+
+**On start** (run once the finding id is known):
+
+```bash
+mkdir -p .audit/activity
+printf '{"command":"audit-qa","finding":"NNN","worktree":"root","startedAt":"%s","agent":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(git config user.name 2>/dev/null || whoami)" "$$" \
+  > ".audit/activity/audit-qa-NNN.json"
+```
+
+**On finish or abort** (always remove the same file):
+
+```bash
+rm -f ".audit/activity/audit-qa-NNN.json"
+```
+
 ### 3. Current state on the QA surface
 
 Look up whether the finding already has a QA page/checklist:
@@ -303,3 +322,11 @@ branch is also available in the worktree at that path.
   d of feedback).
 - If the Notion MCP fails mid-run, STOP and report partial state — no automatic rollback; offer
   the file-checklist fallback.
+- **ALWAYS remove the presence file** `.audit/activity/audit-qa-NNN.json` on finish or abort
+  (see "Activity tracking (live presence)").
+
+## Before you finish
+
+- Remove the live-presence file created at start:
+  `rm -f ".audit/activity/audit-qa-NNN.json"` — do this on normal completion AND on any early
+  or abort exit, so the `pdd` dashboard stops showing this run as active.

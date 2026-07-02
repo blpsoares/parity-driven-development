@@ -42,6 +42,27 @@ This command is strictly **read-only** with respect to source code and the refer
   - If NO: proceed.
 - Load the template at `.claude/skills/audit-investigate/template.md`.
 
+## Activity tracking (live presence)
+
+So the `pdd` dashboard can show what is running in real time (across parallel agents and worktrees), record a presence file when this skill STARTS and delete it when it FINISHES — including on early/abort exits.
+
+**On start** (run once the finding id is known):
+
+```bash
+mkdir -p .audit/activity
+printf '{"command":"audit-investigate","finding":"NNN","worktree":"WT","startedAt":"%s","agent":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(git config user.name 2>/dev/null || whoami)" "$$" \
+  > ".audit/activity/audit-investigate-NNN.json"
+```
+
+Replace `NNN` with the finding id and `WT` with the finding's `worktree` path when one is set, otherwise the literal `root`.
+
+**On finish or abort** (always remove the same file):
+
+```bash
+rm -f ".audit/activity/audit-investigate-NNN.json"
+```
+
 ### 2. Finding presentation (quick overview for the dev)
 
 Before deciding on an approach, summarize the finding in 4-6 lines:
@@ -180,6 +201,7 @@ Report:
 - A 3-line summary of the ranked hypotheses.
 - Next step: "When you want to fix it, run `/audit-resolve NNN`."
 - If the investigation indicated the bug is NOT in the new system (e.g. divergent data in the dev database, a pending feature), state it clearly and suggest moving the finding to `resolved/` with an "out of scope" note.
+- **Cleanup:** remove the presence file created in "Activity tracking" — `rm -f ".audit/activity/audit-investigate-NNN.json"` — now that the skill is finishing (do the same on any early/abort exit).
 
 ## Quality rules
 
@@ -190,3 +212,4 @@ Report:
 - ALWAYS cite file:line when referring to code.
 - ALWAYS separate "observed fact" from "hypothesis" — do not mix them.
 - If the finding has a `worktree` path, ALWAYS read and analyze inside that worktree; if it is `none`, operate in the main checkout.
+- ALWAYS remove the presence file `.audit/activity/audit-investigate-NNN.json` when the skill finishes OR aborts — it must never be left behind.

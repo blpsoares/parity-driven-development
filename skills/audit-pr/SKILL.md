@@ -78,6 +78,29 @@ anything.
 
 Only when ALL five pass do you proceed.
 
+## Activity tracking (live presence)
+
+So the `pdd` dashboard can show what is running in real time (across parallel agents and worktrees), record a presence file when this skill STARTS and delete it when it FINISHES — including on early/abort exits.
+
+**On start** (run once the finding id is known):
+
+```bash
+mkdir -p .audit/activity
+printf '{"command":"audit-pr","finding":"NNN","worktree":"WT","startedAt":"%s","agent":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(git config user.name 2>/dev/null || whoami)" "$$" \
+  > ".audit/activity/audit-pr-NNN.json"
+```
+
+Substitute `NNN` with the finding id and `WT` with the finding's absolute `worktree` path when it is a
+path, otherwise the literal `root`. Run this inside the active working tree so `.audit/activity` is the
+worktree's own directory (which the CLI also reads).
+
+**On finish or abort** (always remove the same file):
+
+```bash
+rm -f ".audit/activity/audit-pr-NNN.json"
+```
+
 ### 3. Gather the evidence artifacts
 
 Read, in the finding folder:
@@ -179,6 +202,10 @@ validates the {{PREVIEW_MODE}} environment on this branch BEFORE any merge.
 🛑 I did not merge and will not — merge is 100% human, only after QA approves.
 ```
 
+- **Cleanup:** remove the presence file recorded at the start —
+  `rm -f ".audit/activity/audit-pr-NNN.json"` — so the dashboard stops showing this skill as running.
+  Do this here and on every early/abort exit too.
+
 ## Quality rules
 
 - NEVER push or run `gh pr create` without an explicit human "yes" in the same session. NEVER commit.
@@ -192,3 +219,5 @@ validates the {{PREVIEW_MODE}} environment on this branch BEFORE any merge.
 - If the dev asks you to skip the gate, refuse politely and restate the inviolable rule.
 - ALWAYS record `pr_url` back into the `evidence:` block for traceability, and point the dev to
   `/audit-qa NNN`.
+- ALWAYS remove the presence file `.audit/activity/audit-pr-NNN.json` on finish AND on any abort/early
+  exit, so no stale entry lingers in the dashboard.

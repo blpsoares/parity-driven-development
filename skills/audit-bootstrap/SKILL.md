@@ -31,6 +31,25 @@ This command initializes the **PDD (Parity-Driven Development)** method — a me
 - Check whether the project has a rules document (e.g. `.specify/memory/constitution.md`, `RULES.md`, `CONTRIBUTING.md`, `ARCHITECTURE.md`). If found, note the path — it will be referenced rather than duplicated.
 - Load the template at `.claude/skills/audit-bootstrap/template.md` (or the plugin-local `skills/audit-bootstrap/template.md`).
 
+## Activity tracking (live presence)
+
+So the `pdd` dashboard can show what is running in real time (across parallel agents and worktrees), record a presence file when this skill STARTS and delete it when it FINISHES — including on early/abort exits.
+
+**On start** (this skill has no finding id — use an empty finding value):
+
+```bash
+mkdir -p .audit/activity
+printf '{"command":"audit-bootstrap","finding":"","worktree":"root","startedAt":"%s","agent":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(git config user.name 2>/dev/null || whoami)" "$$" \
+  > ".audit/activity/audit-bootstrap.json"
+```
+
+**On finish or abort** (always remove the same file):
+
+```bash
+rm -f ".audit/activity/audit-bootstrap.json"
+```
+
 ### 2. Interview tone
 
 - **Critical rule**: NEVER fill a field without an explicit answer from the dev. If the answer is vague or "I don't know", record literally `<pending — fill before any /audit-new>`.
@@ -231,6 +250,8 @@ Report:
 - How many fields remained `<pending>` (if any, warn that they must be filled before `/audit-new`).
 - Next step: "When you spot a divergence, run `/audit-new <short description>`."
 
+Before returning, remove the presence file: `rm -f ".audit/activity/audit-bootstrap.json"` (also do this on any early/abort exit).
+
 ## Quality rules
 
 - NEVER invent an answer by inference. If the dev says "I don't know", record it literally.
@@ -238,3 +259,4 @@ Report:
 - ALWAYS reference an existing rules document instead of duplicating it.
 - The AI never authors commits; push and merge are human. State this in the generated BOOTSTRAP.
 - Final confirmation before writing to disk.
+- The activity presence file (`.audit/activity/audit-bootstrap.json`) MUST be removed when the skill finishes or aborts.

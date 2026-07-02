@@ -58,6 +58,27 @@ Part of the **PDD (Parity-Driven Development)** method. This is the final phase 
   - If YES: "A resolution already exists. Do you want to (a) review it, or (b) overwrite it after a new attempt?"
 - Load the template from `skills/audit-resolve/template.md`.
 
+## Activity tracking (live presence)
+
+So the `pdd` dashboard can show what is running in real time (across parallel agents and worktrees), record a presence file when this skill STARTS and delete it when it FINISHES — including on early/abort exits.
+
+Substitute `NNN` with the finding id, and `WT` with the finding's `worktree` field when it is an absolute path, otherwise the literal `root`.
+
+**On start** (run once the finding id is known):
+
+```bash
+mkdir -p .audit/activity
+printf '{"command":"audit-resolve","finding":"NNN","worktree":"WT","startedAt":"%s","agent":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(git config user.name 2>/dev/null || whoami)" "$$" \
+  > ".audit/activity/audit-resolve-NNN.json"
+```
+
+**On finish or abort** (always remove the same file):
+
+```bash
+rm -f ".audit/activity/audit-resolve-NNN.json"
+```
+
 ### 2. Worktree mode vs. branch mode
 
 Read the finding's `worktree:` field from its README frontmatter. This decides where you work.
@@ -273,6 +294,7 @@ Next step: run /audit-compare NNN (if not done) and then /audit-pr NNN to open t
 - Confirm the coverage map and board states.
 - Remind the dev the next step is `/audit-pr NNN` (after committing).
 - Ask if they want to prepare the next finding.
+- Remove the live-presence file: `rm -f ".audit/activity/audit-resolve-NNN.json"` (also do this on any early/abort exit).
 
 ## Quality rules
 
@@ -286,3 +308,4 @@ Next step: run /audit-compare NNN (if not done) and then /audit-pr NNN to open t
 - ALWAYS confirm the plan with the dev BEFORE modifying code.
 - ALWAYS reference the reference file/spec that motivated the change.
 - ALWAYS preserve behavior in existing tests — if an old test breaks, treat it as a regression signal.
+- ALWAYS remove the live-presence file `.audit/activity/audit-resolve-NNN.json` when the skill finishes or aborts.

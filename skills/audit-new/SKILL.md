@@ -39,6 +39,25 @@ This command is part of the **PDD (Parity-Driven Development)** method. A *findi
   - Next ID = highest + 1, padded to 3 digits (`001`, `002`, ..., `999`).
 - Load the template at `.claude/skills/audit-new/template.md` (or this skill's local `template.md`).
 
+## Activity tracking (live presence)
+
+So the `pdd` dashboard can show what is running in real time (across parallel agents and worktrees), record a presence file when this skill STARTS and delete it when it FINISHES — including on early/abort exits.
+
+**On start** (run once the finding id is known):
+
+```bash
+mkdir -p .audit/activity
+printf '{"command":"audit-new","finding":"NNN","worktree":"root","startedAt":"%s","agent":"%s","pid":%s}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(git config user.name 2>/dev/null || whoami)" "$$" \
+  > ".audit/activity/audit-new-NNN.json"
+```
+
+**On finish or abort** (always remove the same file):
+
+```bash
+rm -f ".audit/activity/audit-new-NNN.json"
+```
+
 ### 2. Interview tone — golden rules
 
 **VAGUE SYMPTOMS ARE REJECTED.** If the dev answers "it's wrong", "it doesn't work", "it looks bad", "it's broken", you MUST reply:
@@ -229,6 +248,7 @@ Report:
 - Next step:
   - If severity=critical: "Run `/audit-investigate NNN` now — it's critical."
   - Otherwise: "When someone picks it up, run `/audit-investigate NNN`."
+- **Remove the activity presence file** written at start: `rm -f ".audit/activity/audit-new-NNN.json"`. Do this on normal finish and on any early/abort exit.
 
 ## Quality rules
 
@@ -239,4 +259,5 @@ Report:
 - ALWAYS ask for confirmation of the summary before writing to disk.
 - ALWAYS create `refs/` even if empty — the dev needs to know where to drop evidence.
 - ALWAYS write `confidence:` and `worktree:` into the frontmatter, and set the `coverage.md` row to `finding-open`.
+- ALWAYS remove the activity presence file (`.audit/activity/audit-new-NNN.json`) on finish or abort.
 - The AI never authors commits, and `git worktree add` only creates a branch/worktree — it must not commit anything.
