@@ -9,21 +9,33 @@
 // The audit directory is resolved as <path or process.cwd()>/.audit.
 
 import { watch, existsSync } from "node:fs";
-import { join, resolve, isAbsolute } from "node:path";
-import { readMergedAuditState } from "./state";
+import { join, resolve, isAbsolute, dirname } from "node:path";
+import { readMergedAuditState, pruneStaleActivity } from "./state";
 import { renderBoard } from "./render";
 import { runTui } from "./tui";
 
-/** Resolve the `.audit` directory from an optional path argument. */
+/** Walk up from `start` looking for a directory that contains `.audit`. */
+function findAuditUpwards(start: string): string | null {
+  let dir = start;
+  for (;;) {
+    if (existsSync(join(dir, ".audit"))) return join(dir, ".audit");
+    const parent = dirname(dir);
+    if (parent === dir) return null; // reached filesystem root
+    dir = parent;
+  }
+}
+
+/**
+ * Resolve the `.audit` directory. An explicit path argument is honored as-is
+ * (accepting either a project root or a `.audit` dir). With no argument, walk up
+ * from the current directory so `pdd` works from any subfolder of the project.
+ */
 function resolveAuditDir(pathArg?: string): string {
-  const base = pathArg
-    ? isAbsolute(pathArg)
-      ? pathArg
-      : resolve(process.cwd(), pathArg)
-    : process.cwd();
-  // Allow passing either the project root or the .audit dir directly.
-  if (base.endsWith(".audit")) return base;
-  return join(base, ".audit");
+  if (pathArg) {
+    const base = isAbsolute(pathArg) ? pathArg : resolve(process.cwd(), pathArg);
+    return base.endsWith(".audit") ? base : join(base, ".audit");
+  }
+  return findAuditUpwards(process.cwd()) ?? join(process.cwd(), ".audit");
 }
 
 /** Clear the terminal (ANSI clear + move cursor home). */
@@ -77,14 +89,16 @@ function main(argv: string[]): void {
   const args = argv.slice(2);
   const command = args[0] ?? "tui"; // no command → interactive TUI
 
-  if (command !== "board" && command !== "tui") {
+  if (command !== "board" && command !== "tui" && command !== "prune") {
     process.stdout.write(
       "pdd — Parity-Driven Development dashboard\n\n" +
         "Usage:\n" +
         "  pdd                       Interactive, navigable dashboard (default)\n" +
         "  pdd tui [path]            Interactive dashboard (↑/↓ navigate, →/enter expand, q quit)\n" +
         "  pdd board [path]          Print a static snapshot once\n" +
-        "  pdd board --watch [path]  Static auto-refresh on .audit changes\n",
+        "  pdd board --watch [path]  Static auto-refresh on .audit changes\n" +
+        "  pdd prune [path]          Remove stale/orphaned activity records\n\n" +
+        "With no [path], pdd walks up from the current directory to find .audit.\n",
     );
     process.exitCode = 1;
     return;
@@ -95,7 +109,15 @@ function main(argv: string[]): void {
   const pathArg = rest.find((a) => !a.startsWith("--"));
   const auditDir = resolveAuditDir(pathArg);
 
-  if (command === "tui") {
+  if (command === "prune") {
+    const removed = pruneStaleActivity(auditDir);
+    if (removed.length === 0) {
+      process.stdout.write("No stale activity records found.\n");
+    } else {
+      process.stdout.write(`Removed ${removed.length} stale activity record(s):\n`);
+      for (const f of removed) process.stdout.write(`  ${f}\n`);
+    }
+  } else if (command === "tui") {
     runTui(auditDir);
   } else if (watchMode) {
     watchBoard(auditDir);

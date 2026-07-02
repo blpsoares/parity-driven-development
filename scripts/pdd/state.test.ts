@@ -12,6 +12,7 @@ import {
   readActivityFrom,
   dedupeActivity,
   progressRank,
+  pruneStaleActivity,
   type Finding,
   type Worktree,
 } from "./state";
@@ -303,4 +304,28 @@ test("coveragePct counts only verified, not resolved (pending QA)", () => {
   rmSync(root, { recursive: true, force: true });
   // Only 1 of 4 is verified → 25%. The 'resolved' row must NOT count.
   expect(state.coveragePct).toBe(25);
+});
+
+test("pruneStaleActivity removes only stale records", () => {
+  const root = mkdtempSync(join(tmpdir(), "pdd-prune-"));
+  const auditDir = join(root, ".audit");
+  const actDir = join(auditDir, "activity");
+  mkdirSync(actDir, { recursive: true });
+  const now = Date.parse("2026-07-02T12:00:00Z");
+  writeFileSync(
+    join(actDir, "fresh.json"),
+    JSON.stringify({ command: "audit-new", finding: "001", startedAt: "2026-07-02T11:59:00Z" }),
+  );
+  writeFileSync(
+    join(actDir, "stale.json"),
+    JSON.stringify({ command: "audit-investigate", finding: "002", startedAt: "2026-07-02T10:00:00Z" }),
+  );
+  const removed = pruneStaleActivity(auditDir, now);
+  const stillThere = readActivityFrom(actDir, now);
+  rmSync(root, { recursive: true, force: true });
+
+  expect(removed.length).toBe(1);
+  expect(removed[0]).toContain("stale.json");
+  expect(stillThere.length).toBe(1);
+  expect(stillThere[0].finding).toBe("001");
 });

@@ -157,7 +157,11 @@ pdd                  # interactive, navigable dashboard (default) — ↑/↓ mo
 pdd tui              # same interactive dashboard, explicit
 pdd board            # static ANSI snapshot (good for piping/CI)
 pdd board --watch    # static auto-refresh whenever .audit/ changes (fs.watch)
+pdd prune            # remove stale/orphaned activity records (from crashed sessions)
 ```
+
+With no path argument, `pdd` walks up from the current directory to find `.audit`, so it
+works from any subfolder of the project.
 
 The interactive TUI shows a collapsible tree: **Coverage**, **Worktrees** (expand a worktree
 to see its branch, full path and findings), **Findings** grouped by lifecycle (open /

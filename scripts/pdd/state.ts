@@ -2,7 +2,7 @@
 // Zero-dependency parser for a project's `.audit/` directory.
 // Every comment and identifier here is in English so the framework stays shareable.
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, unlinkSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -315,6 +315,39 @@ export function mergeFindings(
   return [...chosen.values()]
     .map((c) => c.f)
     .sort((a, b) => (a.id || "").localeCompare(b.id || ""));
+}
+
+/** Every `.audit/activity` directory to scan: the root plus each worktree's. */
+function activityDirs(auditDir: string): string[] {
+  const dirs = [join(auditDir, "activity")];
+  const repoRoot = dirname(auditDir);
+  const rootResolved = resolve(repoRoot);
+  for (const wt of listWorktrees(repoRoot)) {
+    if (resolve(wt.path) === rootResolved) continue;
+    dirs.push(join(wt.path, ".audit", "activity"));
+  }
+  return dirs;
+}
+
+/**
+ * Delete stale activity records (orphaned presence files from crashed sessions)
+ * across the root and every worktree. Returns the removed file paths. `now` is
+ * injectable for tests.
+ */
+export function pruneStaleActivity(auditDir: string, now: number = Date.now()): string[] {
+  const removed: string[] = [];
+  for (const dir of activityDirs(auditDir)) {
+    for (const a of readActivityFrom(dir, now)) {
+      if (!a.stale) continue;
+      try {
+        unlinkSync(a.file);
+        removed.push(a.file);
+      } catch {
+        // Already gone or unreadable — ignore.
+      }
+    }
+  }
+  return removed;
 }
 
 /** List git worktrees for a repo root (empty when not a git repo). */

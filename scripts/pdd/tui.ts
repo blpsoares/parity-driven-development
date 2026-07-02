@@ -551,6 +551,9 @@ export function runTui(auditDir: string): void {
     // Recursive watch unsupported — nav still works, just no live refresh.
   }
 
+  // Redraw on terminal resize so the layout never looks stale.
+  process.stdout.on("resize", draw);
+
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
 }
