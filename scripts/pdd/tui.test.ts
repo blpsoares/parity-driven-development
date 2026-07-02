@@ -12,6 +12,9 @@ import {
   reduce,
   toggleAt,
   gotoTab,
+  pipelineStages,
+  currentStageIndex,
+  renderPipeline,
   renderFrame,
   DEFAULT_EXPANDED,
   TABS,
@@ -25,17 +28,17 @@ const fixture: AuditState = {
     {
       id: "001", title: "Bun test missing", slug: "a", area: "runtime-infra",
       severity: "critical", status: "open", confidence: "tier-0", worktree: "none",
-      hasInvestigation: false, hasResolution: false, dir: "/p/.audit/findings/001-a",
+      hasInvestigation: false, hasResolution: false, qaStatus: "", prUrl: "", dir: "/p/.audit/findings/001-a",
     },
     {
       id: "004", title: "Scripts", slug: "b", area: "runtime-infra",
       severity: "high", status: "open", confidence: "tier-1", worktree: "none",
-      hasInvestigation: false, hasResolution: false, dir: "/p/.audit/findings/004-b",
+      hasInvestigation: false, hasResolution: false, qaStatus: "", prUrl: "", dir: "/p/.audit/findings/004-b",
     },
     {
       id: "003", title: "Done one", slug: "c", area: "auth",
       severity: "high", status: "resolved", confidence: "tier-3", worktree: "none",
-      hasInvestigation: true, hasResolution: true, dir: "/p/.audit/resolved/003-c",
+      hasInvestigation: true, hasResolution: true, qaStatus: "", prUrl: "", dir: "/p/.audit/resolved/003-c",
     },
   ],
   coverage: [{ behavior: "x", referenceCase: "-", status: "verified", tier: "tier-3", finding: "003" }],
@@ -138,4 +141,41 @@ test("renderFrame draws the tab bar, live badge and highlights the cursor", () =
   expect(plain).toContain("Findings");
   expect(plain).toContain("● live");
   expect(frame).toContain("\x1b[7m"); // reverse video on cursor row / active tab
+});
+
+test("pipelineStages reflects PR/QA/coverage and currentStageIndex points to the next", () => {
+  const base = {
+    id: "007", title: "t", slug: "s", area: "a", severity: "high",
+    status: "resolved", confidence: "tier-2", worktree: "none",
+    hasInvestigation: true, hasResolution: true, qaStatus: "", prUrl: "",
+    dir: "/x",
+  };
+  // Resolved locally, no PR yet → current stage is "PR" (index 3).
+  const s1 = pipelineStages(base, "resolved");
+  expect(s1.find((s) => s.key === "resolved")!.done).toBe(true);
+  expect(s1.find((s) => s.key === "pr")!.done).toBe(false);
+  expect(s1[currentStageIndex(s1)].key).toBe("pr");
+
+  // With a PR + QA approved + coverage verified → all done.
+  const s2 = pipelineStages(
+    { ...base, prUrl: "https://x/pr/1", qaStatus: "approved" },
+    "verified",
+  );
+  expect(s2.every((s) => s.done)).toBe(true);
+  expect(stripAnsi(renderPipeline(s2))).toContain("verified");
+});
+
+test("Flow and Legend tabs exist and render their sections", () => {
+  expect(TABS).toContain("Flow");
+  expect(TABS).toContain("Legend");
+  const tree = buildTree(fixture);
+  expect(sectionsForTab(tree, TABS.indexOf("Flow")).map((n) => n.id)).toEqual(["sec:flow"]);
+  const legend = sectionsForTab(tree, TABS.indexOf("Legend"))[0];
+  const plain = legend.children.map((n) => stripAnsi(n.label)).join(" ");
+  expect(plain.toLowerCase()).toContain("coverage");
+  expect(plain.toLowerCase()).toContain("tiers");
+  // Overview excludes Flow/Legend detail sections.
+  const overviewIds = sectionsForTab(tree, 0).map((n) => n.id);
+  expect(overviewIds).not.toContain("sec:flow");
+  expect(overviewIds).not.toContain("sec:legend");
 });

@@ -24,6 +24,8 @@ export interface Finding {
   worktree: string; // absolute path OR the literal "none"
   hasInvestigation: boolean; // investigation.md present
   hasResolution: boolean; // resolution.md present
+  qaStatus: string; // README frontmatter `qa-status` (e.g. "testing" | "approved"), or ""
+  prUrl: string; // PR url parsed from resolution.md's evidence block, or ""
   dir: string; // absolute directory of the finding
   sourceKind?: "root" | "worktree"; // where this finding was read from
   sourcePath?: string; // the .audit dir (root) or worktree path it came from
@@ -113,6 +115,18 @@ function readFinding(findingDir: string): Finding | null {
   const readmePath = join(findingDir, "README.md");
   if (!existsSync(readmePath)) return null;
   const fm = parseFrontmatter(readFileSync(readmePath, "utf8"));
+  const resolutionPath = join(findingDir, "resolution.md");
+  const hasResolution = existsSync(resolutionPath);
+
+  // The PR url lives in resolution.md's `evidence:` block (written by /audit-pr).
+  let prUrl = "";
+  if (hasResolution) {
+    const m = readFileSync(resolutionPath, "utf8").match(/pr_url:\s*(\S+)/);
+    const raw = m ? m[1].replace(/^["']|["']$/g, "") : "";
+    // Ignore the unfilled template placeholder.
+    if (raw && !raw.startsWith("<")) prUrl = raw;
+  }
+
   return {
     id: fm.id ?? "",
     title: fm.title ?? "",
@@ -123,7 +137,9 @@ function readFinding(findingDir: string): Finding | null {
     confidence: fm.confidence ?? "",
     worktree: fm.worktree ?? "none",
     hasInvestigation: existsSync(join(findingDir, "investigation.md")),
-    hasResolution: existsSync(join(findingDir, "resolution.md")),
+    hasResolution,
+    qaStatus: fm["qa-status"] ?? "",
+    prUrl,
     dir: findingDir,
   };
 }

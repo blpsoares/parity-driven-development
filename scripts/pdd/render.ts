@@ -83,8 +83,10 @@ function inProgressLines(state: AuditState): string[] {
 }
 
 /** Coarse lifecycle state of a finding, for compact display. */
-export function findingState(f: Finding): "done" | "in-progress" | "open" {
-  if (f.hasResolution || f.status === "resolved") return "done";
+export function findingState(f: Finding): "resolved" | "in-progress" | "open" {
+  // "resolved" = dev finished locally; it is NOT "done/guaranteed" (that needs
+  // QA approval + merge, tracked separately by coverage's `verified`).
+  if (f.hasResolution || f.status === "resolved") return "resolved";
   if (f.hasInvestigation || f.status === "investigated") return "in-progress";
   return "open";
 }

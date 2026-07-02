@@ -54,16 +54,26 @@ export interface UiState {
 }
 
 /** The tab bar, in order. */
-export const TABS = ["Overview", "Worktrees", "Findings", "Active", "Coverage"];
+export const TABS = [
+  "Overview",
+  "Flow",
+  "Worktrees",
+  "Findings",
+  "Active",
+  "Coverage",
+  "Legend",
+];
 
 /** Sections that start expanded. */
 export const DEFAULT_EXPANDED = [
+  "sec:flow",
   "sec:worktrees",
   "sec:findings",
   "sec:active",
+  "sec:legend",
   "findings:open",
   "findings:in-progress",
-  "findings:done",
+  "findings:resolved",
 ];
 
 // Fixed frame layout (1-based terminal rows), used by both renderer and hitTest.
@@ -75,9 +85,56 @@ function node(id: string, label: string, children: TreeNode[] = []): TreeNode {
 }
 
 function findingLifecycle(f: Finding): string {
-  if (f.hasResolution || f.status === "resolved") return "done";
+  // "resolved" = dev finished locally (NOT guaranteed — that is coverage's `verified`).
+  if (f.hasResolution || f.status === "resolved") return "resolved";
   if (f.hasInvestigation || f.status === "investigated") return "in-progress";
   return "open";
+}
+
+/** The finding pipeline, in order. */
+export interface Stage {
+  key: string;
+  label: string;
+  done: boolean;
+}
+
+/** Compute the full-flow pipeline of a finding (needs its coverage row status). */
+export function pipelineStages(f: Finding, coverageStatus: string): Stage[] {
+  const resolved = f.hasResolution || f.status === "resolved";
+  return [
+    { key: "new", label: "new", done: true },
+    { key: "investigated", label: "investigated", done: f.hasInvestigation || resolved },
+    { key: "resolved", label: "resolved", done: resolved },
+    { key: "pr", label: "PR", done: Boolean(f.prUrl) },
+    { key: "qa", label: "QA", done: f.qaStatus === "approved" },
+    { key: "verified", label: "verified", done: coverageStatus === "verified" },
+  ];
+}
+
+/** The 0-based index of the current stage (first not-done, or last when all done). */
+export function currentStageIndex(stages: Stage[]): number {
+  const i = stages.findIndex((s) => !s.done);
+  return i === -1 ? stages.length - 1 : i;
+}
+
+/** Render the pipeline as a compact colored line: done ●, current ◉, future ○. */
+export function renderPipeline(stages: Stage[]): string {
+  const cur = currentStageIndex(stages);
+  return stages
+    .map((s, i) => {
+      const dot = s.done ? c.green("●") : i === cur ? c.yellow("◉") : c.dim("○");
+      const name = s.done ? c.green(s.label) : i === cur ? c.yellow(s.label) : c.dim(s.label);
+      return `${dot} ${name}`;
+    })
+    .join(c.dim(" ─ "));
+}
+
+/** Just the colored dots of a pipeline (compact glyph for a finding row). */
+function pipelineDots(stages: Stage[]): string {
+  const cur = currentStageIndex(stages);
+  return stages
+    .map((s, i) => (s.done ? c.green("●") : i === cur ? c.yellow("◉") : c.dim("○")))
+    .join("");
 }
 
 function last(p: string): string {
@@ -174,7 +231,7 @@ export function buildTree(state: AuditState): TreeNode[] {
   const order = [
     { key: "open", paint: c.red },
     { key: "in-progress", paint: c.yellow },
-    { key: "done", paint: c.green },
+    { key: "resolved", paint: c.green },
   ];
   const groups: TreeNode[] = [];
   for (const g of order) {
@@ -214,13 +271,72 @@ export function buildTree(state: AuditState): TreeNode[] {
     ),
   );
 
+  // Flow — the FULL pipeline per finding (new → investigated → resolved → PR → QA → verified).
+  const covStatusOf = (fid: string) =>
+    state.coverage.find((r) => r.finding === fid)?.status ?? "not-started";
+  sections.push(
+    node(
+      "sec:flow",
+      `${c.bold("Flow")} ${c.dim("(pipeline per finding)")}`,
+      fs.map((f) => {
+        const stages = pipelineStages(f, covStatusOf(f.id));
+        const cur = stages[currentStageIndex(stages)];
+        return node(
+          `flow:${f.id}`,
+          `${c.bold(f.id)} ${f.title}  ${pipelineDots(stages)} ${c.dim("→ " + cur.label)}`,
+          [
+            node(`flow:${f.id}:line`, renderPipeline(stages)),
+            node(`flow:${f.id}:pr`, `${c.dim("PR:")} ${f.prUrl || c.dim("— not opened (run /audit-pr)")}`),
+            node(
+              `flow:${f.id}:qa`,
+              `${c.dim("QA:")} ${f.qaStatus ? f.qaStatus : c.dim("— not in QA yet")}`,
+            ),
+            node(
+              `flow:${f.id}:cov`,
+              `${c.dim("coverage:")} ${covStatusOf(f.id)}${covStatusOf(f.id) === "verified" ? c.green(" ✓ guaranteed") : c.yellow(" (not guaranteed yet)")}`,
+            ),
+          ],
+        );
+      }),
+    ),
+  );
+
+  // Legend — plain-language explanations of coverage, tiers and the pipeline.
+  sections.push(
+    node("sec:legend", `${c.bold("Legend")} ${c.dim("(what these mean)")}`, [
+      node(
+        "legend:coverage",
+        `${c.bold("Coverage %")} = share of behaviors/areas proven identical to the reference`,
+        [
+          node("legend:cov:1", c.dim("Counts only VERIFIED rows (QA-approved AND merged).")),
+          node("legend:cov:2", c.dim("It is NOT code/line coverage — it is behavioral parity.")),
+          node("legend:cov:3", c.dim("Locally-resolved rows show as 'pending QA' and do NOT count.")),
+        ],
+      ),
+      node("legend:tiers", `${c.bold("Tiers")} = strength of the evidence behind a finding`, [
+        node("legend:t0", `${c.red("tier-0")} ${c.dim("text description only (weakest)")}`),
+        node("legend:t1", `${c.yellow("tier-1")} ${c.dim("paired screenshots (reference vs new)")}`),
+        node("legend:t2", `${c.magenta("tier-2")} ${c.dim("automated data-to-data diff (/audit-compare)")}`),
+        node("legend:t3", `${c.green("tier-3")} ${c.dim("tier-2 + a passing characterization test (strongest)")}`),
+      ]),
+      node("legend:flow", `${c.bold("Pipeline")} = the life of a finding`, [
+        node("legend:f1", c.dim("new → captured · investigated → root cause understood")),
+        node("legend:f2", c.dim("resolved → fix done locally (NOT guaranteed yet)")),
+        node("legend:f3", c.dim("PR → dossier opened · QA → validated on the branch")),
+        node("legend:f4", `${c.dim("verified → approved + merged ")}${c.green("(guaranteed)")}`),
+      ]),
+    ]),
+  );
+
   return sections;
 }
 
-/** Pick the sections shown by a tab (Overview shows all). */
+/** Pick the sections shown by a tab. Overview shows the operational sections. */
 export function sectionsForTab(tree: TreeNode[], tabIndex: number): TreeNode[] {
   const only = (id: string) => tree.filter((n) => n.id === id);
   switch (TABS[tabIndex]) {
+    case "Flow":
+      return only("sec:flow");
     case "Worktrees":
       return only("sec:worktrees");
     case "Findings":
@@ -229,8 +345,11 @@ export function sectionsForTab(tree: TreeNode[], tabIndex: number): TreeNode[] {
       return only("sec:active");
     case "Coverage":
       return only("sec:coverage");
+    case "Legend":
+      return only("sec:legend");
     default:
-      return tree;
+      // Overview: everything except the Flow and Legend detail views.
+      return tree.filter((n) => n.id !== "sec:flow" && n.id !== "sec:legend");
   }
 }
 
