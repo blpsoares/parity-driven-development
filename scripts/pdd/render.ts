@@ -82,6 +82,30 @@ function inProgressLines(state: AuditState): string[] {
     .filter((l) => l.length > 0 && !placeholder.test(l));
 }
 
+/** Coarse lifecycle state of a finding, for compact display. */
+export function findingState(f: Finding): "done" | "in-progress" | "open" {
+  if (f.hasResolution || f.status === "resolved") return "done";
+  if (f.hasInvestigation || f.status === "investigated") return "in-progress";
+  return "open";
+}
+
+/** Last path segment, for compact worktree labels. */
+function shortPath(p: string): string {
+  const parts = p.replace(/\/+$/, "").split("/");
+  return parts[parts.length - 1] || p;
+}
+
+/** Human-friendly age from milliseconds (e.g. "3m", "2h"). */
+function humanAge(ms: number): string {
+  if (!Number.isFinite(ms)) return "?";
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return `${h}h`;
+}
+
 // --- Main renderer ----------------------------------------------------------
 
 /** Render the full PDD board as an ANSI string panel. */
@@ -131,6 +155,67 @@ export function renderBoard(state: AuditState): string {
     lines.push(`  ${paint(tier.padEnd(8))} ${chip} ${color.dim(String(count))}`);
   }
   if (!anyTier) lines.push(color.dim("  (none)"));
+  lines.push("");
+
+  // Active executions right now (presence layer).
+  const activity = state.activity ?? [];
+  lines.push(color.bold("Active now"));
+  if (activity.length === 0) {
+    lines.push(color.dim("  (no executions running)"));
+  } else {
+    // Group by command → list of finding ids.
+    const byCmd = new Map<string, string[]>();
+    for (const a of activity) {
+      const label = (a.finding ? a.finding : "—") + (a.stale ? "?" : "");
+      const arr = byCmd.get(a.command) ?? [];
+      arr.push(label);
+      byCmd.set(a.command, arr);
+    }
+    for (const [cmd, ids] of [...byCmd.entries()].sort()) {
+      lines.push(
+        `  ${color.green("●")} ${color.bold(String(ids.length))}× ${cmd} ` +
+          color.dim(`(${ids.join(", ")})`),
+      );
+    }
+    // Per-execution detail (context + worktree + age).
+    for (const a of activity) {
+      const where =
+        a.worktree && a.worktree !== "none" && a.worktree !== "root"
+          ? shortPath(a.worktree)
+          : "root";
+      const who = a.agent ? ` ${color.dim("@" + a.agent)}` : "";
+      const staleTag = a.stale ? color.red(" stale") : "";
+      lines.push(
+        color.dim(
+          `    ↳ ${a.command} ${a.finding || "—"} [${where}] ${humanAge(a.ageMs)}`,
+        ) + who + staleTag,
+      );
+    }
+  }
+  lines.push("");
+
+  // Worktrees and their findings.
+  const worktrees = state.worktrees ?? [];
+  lines.push(color.bold("Worktrees"));
+  if (worktrees.length === 0) {
+    lines.push(color.dim("  (none active)"));
+  } else {
+    lines.push(`  ${color.bold(String(worktrees.length))} active`);
+    for (const wt of worktrees) {
+      const head = `  ${color.cyan("▸")} ${wt.branch} ${color.dim(`[${shortPath(wt.path)}]`)}`;
+      if (wt.findings.length === 0) {
+        lines.push(`${head} ${color.dim("(no .audit)")}`);
+        continue;
+      }
+      for (const f of wt.findings) {
+        const paint = TIER_COLOR[f.confidence] ?? color.dim;
+        lines.push(
+          `${head}  ${color.bold(f.id || "—")} ${paint(String(f.confidence || "tier-?"))} ` +
+            color.dim(`· ${findingState(f)}`),
+        );
+      }
+    }
+  }
   lines.push("");
 
   // In-progress tasks.

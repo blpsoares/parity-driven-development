@@ -5,7 +5,16 @@ import { test, expect } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readAuditState } from "./state";
+import {
+  readAuditState,
+  parseWorktreePorcelain,
+  mergeFindings,
+  readActivityFrom,
+  dedupeActivity,
+  progressRank,
+  type Finding,
+  type Worktree,
+} from "./state";
 
 /** Build a throwaway `.audit/` fixture and return its path plus a cleanup fn. */
 function buildFixture(): { auditDir: string; cleanup: () => void } {
@@ -154,4 +163,123 @@ test("readAuditState returns empty state for a missing .audit dir", () => {
   expect(state.coverage.length).toBe(0);
   expect(state.board.length).toBe(0);
   expect(state.coveragePct).toBe(0);
+});
+
+// --- Worktrees & activity ---------------------------------------------------
+
+/** Minimal finding factory for the pure-function tests. */
+function fakeFinding(over: Partial<Finding>): Finding {
+  return {
+    id: "000",
+    title: "",
+    slug: "",
+    area: "",
+    severity: "",
+    status: "open",
+    confidence: "tier-0",
+    worktree: "none",
+    hasInvestigation: false,
+    hasResolution: false,
+    dir: "/tmp/x",
+    ...over,
+  };
+}
+
+test("parseWorktreePorcelain extracts path + branch and handles detached", () => {
+  const out = parseWorktreePorcelain(
+    [
+      "worktree /home/dev/repo",
+      "HEAD abc123",
+      "branch refs/heads/dev",
+      "",
+      "worktree /home/dev/repo-audit-001",
+      "HEAD def456",
+      "branch refs/heads/audit/001-x",
+      "",
+      "worktree /home/dev/repo-detached",
+      "HEAD 999",
+      "detached",
+      "",
+    ].join("\n"),
+  );
+  expect(out).toHaveLength(3);
+  expect(out[1]).toEqual({ path: "/home/dev/repo-audit-001", branch: "audit/001-x" });
+  expect(out[2].branch).toBe("detached");
+});
+
+test("mergeFindings prefers the worktree copy over the root copy", () => {
+  const root = [fakeFinding({ id: "001", status: "open" })];
+  const worktrees: Worktree[] = [
+    {
+      path: "/wt/repo-audit-001",
+      branch: "audit/001-x",
+      auditDir: "/wt/repo-audit-001/.audit",
+      findings: [fakeFinding({ id: "001", status: "resolved", hasResolution: true })],
+    },
+  ];
+  const merged = mergeFindings(root, worktrees);
+  expect(merged).toHaveLength(1);
+  expect(merged[0].status).toBe("resolved");
+});
+
+test("progressRank orders resolved > investigated > open", () => {
+  expect(progressRank(fakeFinding({ hasResolution: true }))).toBe(3);
+  expect(progressRank(fakeFinding({ hasInvestigation: true }))).toBe(2);
+  expect(progressRank(fakeFinding({}))).toBe(1);
+});
+
+test("readActivityFrom flags stale records and computes age", () => {
+  const root = mkdtempSync(join(tmpdir(), "pdd-act-"));
+  const actDir = join(root, "activity");
+  mkdirSync(actDir, { recursive: true });
+  const now = Date.parse("2026-07-01T12:00:00Z");
+  writeFileSync(
+    join(actDir, "audit-new-1.json"),
+    JSON.stringify({
+      command: "audit-new",
+      finding: "002",
+      worktree: "none",
+      startedAt: "2026-07-01T11:59:00Z", // 1 min ago → fresh
+      agent: "bryan",
+      pid: 111,
+    }),
+  );
+  writeFileSync(
+    join(actDir, "audit-investigate-2.json"),
+    JSON.stringify({
+      command: "audit-investigate",
+      finding: "003",
+      worktree: "/wt/repo-audit-003",
+      startedAt: "2026-07-01T11:00:00Z", // 60 min ago → stale
+      agent: "agent-2",
+      pid: 222,
+    }),
+  );
+  const acts = readActivityFrom(actDir, now);
+  rmSync(root, { recursive: true, force: true });
+
+  const fresh = acts.find((a) => a.command === "audit-new");
+  const stale = acts.find((a) => a.command === "audit-investigate");
+  expect(fresh?.stale).toBe(false);
+  expect(stale?.stale).toBe(true);
+  expect(fresh?.ageMs).toBe(60 * 1000);
+});
+
+test("dedupeActivity keeps the freshest duplicate", () => {
+  const base = {
+    command: "audit-new",
+    finding: "002",
+    worktree: "none",
+    startedAt: "2026-07-01T11:59:00Z",
+    agent: "",
+    pid: 0,
+    file: "",
+    stale: false,
+  };
+  const deduped = dedupeActivity([
+    { ...base, ageMs: 5000 },
+    { ...base, ageMs: 1000 },
+  ]);
+  expect(deduped).toHaveLength(1);
+  expect(deduped[0].ageMs).toBe(1000);
 });

@@ -10,7 +10,7 @@
 
 import { watch, existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
-import { readAuditState } from "./state";
+import { readMergedAuditState } from "./state";
 import { renderBoard } from "./render";
 
 /** Resolve the `.audit` directory from an optional path argument. */
@@ -39,7 +39,7 @@ function renderOnce(auditDir: string): void {
     );
     return;
   }
-  const state = readAuditState(auditDir);
+  const state = readMergedAuditState(auditDir);
   process.stdout.write(renderBoard(state) + "\n");
 }
 
