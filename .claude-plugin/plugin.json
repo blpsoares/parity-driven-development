@@ -1,6 +1,6 @@
 {
   "name": "pdd",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "PDD (Parity-Driven Development) — framework para refactor/rewrite/port de sistemas legados com paridade comportamental rastreável: evidência objetiva (score de confiança + harness de comparação), testes de caracterização, QA como portão de merge, PR-dossiê e painel de progresso.",
   "author": {
     "name": "Bryan Soares",

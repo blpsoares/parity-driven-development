@@ -1,6 +1,6 @@
 {
   "name": "parity-driven-development",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "PDD — Parity-Driven Development. Framework para refactor de legados. Inclui a CLI `pdd` de painel de progresso.",
   "private": true,
   "type": "module",
