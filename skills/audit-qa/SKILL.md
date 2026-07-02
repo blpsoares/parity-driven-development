@@ -337,12 +337,13 @@ branch is also available in the worktree at that path.
 
 ## Quality rules
 
-- **NEVER create cards before the PR is OPEN.** Critical guard — validate `gh pr view X
-  --json state` == `OPEN` first (the inverted golden rule).
-- **QA is a merge gate.** All approved → report "you may merge PR #X". The AI NEVER merges,
-  NEVER pushes, and NEVER authors commits — merge is 100% human.
-- **Point cards at the testable environment:** the per-branch preview URL when
-  `PREVIEW_MODE=per-branch-url`, or local-branch-checkout instructions when `local`. Never at
+- **Environment gates the PR requirement:** for `environment = local`, QA runs BEFORE the PR
+  (no PR needs to exist). For any **deployment** environment, the PR MUST be open first —
+  validate `gh pr view X --json state` == `OPEN` before creating cards.
+- **QA is a merge gate.** Deployment-env approval → report "you may merge PR #X". The AI NEVER
+  merges, NEVER pushes, and NEVER authors commits — merge is 100% human.
+- **Point cards at the environment being tested:** localhost/run instructions for `local`; the
+  per-branch preview URL (`PREVIEW_MODE=per-branch-url`) or the deployment environment's URL. Never at
   production or `main`.
 - **Rejections stay on the SAME branch** `audit/NNN` as an incremental pre-merge fix — not a
   new post-merge cycle.
