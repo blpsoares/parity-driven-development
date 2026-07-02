@@ -7,7 +7,7 @@ Output demo/pdd.gif
 Set Shell bash
 Set FontSize 15
 Set Width 1200
-Set Height 760
+Set Height 560
 Set Theme "Catppuccin Mocha"
 Set Padding 16
 Set TypingSpeed 40ms
