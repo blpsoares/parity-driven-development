@@ -35,7 +35,7 @@ mk_finding resolved 003 "bunfig.toml removed"              resolved    tier-2 no
 mk_finding resolved 004 "Node test runner wired"           resolved    tier-3 none 1 "https://github.com/blpsoares/x/pull/12"
 
 # 004 also approved by QA (frontmatter marker).
-sed -i 's/status: "resolved"/status: "resolved"\nqa-status: "approved"/' "$A/resolved/004-slug/README.md"
+sed -i 's/status: "resolved"/status: "resolved"\nqa-local: "approved"\nqa-prod: "approved"/' "$A/resolved/004-slug/README.md"
 
 cat > "$A/coverage.md" <<EOF
 | Behavior / Area | Reference case | Status | Tier | Finding |

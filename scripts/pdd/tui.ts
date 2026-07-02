@@ -101,12 +101,17 @@ export interface Stage {
 /** Compute the full-flow pipeline of a finding (needs its coverage row status). */
 export function pipelineStages(f: Finding, coverageStatus: string): Stage[] {
   const resolved = f.hasResolution || f.status === "resolved";
+  const qa = f.qaEnvs ?? {};
+  const localApproved = qa.local === "approved";
+  // Any deployment environment (not "local") approved → environment QA passed.
+  const envApproved = Object.entries(qa).some(([e, s]) => e !== "local" && s === "approved");
   return [
     { key: "new", label: "new", done: true },
     { key: "investigated", label: "investigated", done: f.hasInvestigation || resolved },
     { key: "resolved", label: "resolved", done: resolved },
+    { key: "qa-local", label: "QA local", done: localApproved },
     { key: "pr", label: "PR", done: Boolean(f.prUrl) },
-    { key: "qa", label: "QA", done: f.qaStatus === "approved" },
+    { key: "qa-env", label: "QA env", done: envApproved },
     { key: "verified", label: "verified", done: coverageStatus === "verified" },
   ];
 }
@@ -289,7 +294,13 @@ export function buildTree(state: AuditState): TreeNode[] {
             node(`flow:${f.id}:pr`, `${c.dim("PR:")} ${f.prUrl || c.dim("— not opened (run /audit-pr)")}`),
             node(
               `flow:${f.id}:qa`,
-              `${c.dim("QA:")} ${f.qaStatus ? f.qaStatus : c.dim("— not in QA yet")}`,
+              `${c.dim("QA:")} ${
+                Object.keys(f.qaEnvs ?? {}).length
+                  ? Object.entries(f.qaEnvs)
+                      .map(([e, s]) => `${e}=${s === "approved" ? c.green(s) : s === "rejected" ? c.red(s) : c.yellow(s)}`)
+                      .join(" · ")
+                  : c.dim("— not in QA yet")
+              }`,
             ),
             node(
               `flow:${f.id}:cov`,
@@ -322,8 +333,10 @@ export function buildTree(state: AuditState): TreeNode[] {
       node("legend:flow", `${c.bold("Pipeline")} = the life of a finding`, [
         node("legend:f1", c.dim("new → captured · investigated → root cause understood")),
         node("legend:f2", c.dim("resolved → fix done locally (NOT guaranteed yet)")),
-        node("legend:f3", c.dim("PR → dossier opened · QA → validated on the branch")),
-        node("legend:f4", `${c.dim("verified → approved + merged ")}${c.green("(guaranteed)")}`),
+        node("legend:f3", c.dim("QA local → validated on localhost BEFORE the PR (blocks /audit-pr)")),
+        node("legend:f4", c.dim("PR → dossier opened · deploy to dev/staging/prod")),
+        node("legend:f5", c.dim("QA env → validated on the target environment AFTER deploy")),
+        node("legend:f6", `${c.dim("verified → target-env QA approved + merged ")}${c.green("(guaranteed)")}`),
       ]),
     ]),
   );

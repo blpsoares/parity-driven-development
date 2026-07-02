@@ -24,7 +24,7 @@ export interface Finding {
   worktree: string; // absolute path OR the literal "none"
   hasInvestigation: boolean; // investigation.md present
   hasResolution: boolean; // resolution.md present
-  qaStatus: string; // README frontmatter `qa-status` (e.g. "testing" | "approved"), or ""
+  qaEnvs: Record<string, string>; // per-environment QA status from `qa-<env>` frontmatter keys
   prUrl: string; // PR url parsed from resolution.md's evidence block, or ""
   dir: string; // absolute directory of the finding
   sourceKind?: "root" | "worktree"; // where this finding was read from
@@ -118,6 +118,14 @@ function readFinding(findingDir: string): Finding | null {
   const resolutionPath = join(findingDir, "resolution.md");
   const hasResolution = existsSync(resolutionPath);
 
+  // Per-environment QA status lives in `qa-<env>` frontmatter keys
+  // (e.g. qa-local, qa-dev, qa-staging, qa-prod). `qa-status` is not an env.
+  const qaEnvs: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fm)) {
+    const m = key.match(/^qa-([a-z0-9]+)$/);
+    if (m && m[1] !== "status") qaEnvs[m[1]] = value;
+  }
+
   // The PR url lives in resolution.md's `evidence:` block (written by /audit-pr).
   let prUrl = "";
   if (hasResolution) {
@@ -138,7 +146,7 @@ function readFinding(findingDir: string): Finding | null {
     worktree: fm.worktree ?? "none",
     hasInvestigation: existsSync(join(findingDir, "investigation.md")),
     hasResolution,
-    qaStatus: fm["qa-status"] ?? "",
+    qaEnvs,
     prUrl,
     dir: findingDir,
   };

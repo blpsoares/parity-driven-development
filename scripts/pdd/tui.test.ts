@@ -28,17 +28,17 @@ const fixture: AuditState = {
     {
       id: "001", title: "Bun test missing", slug: "a", area: "runtime-infra",
       severity: "critical", status: "open", confidence: "tier-0", worktree: "none",
-      hasInvestigation: false, hasResolution: false, qaStatus: "", prUrl: "", dir: "/p/.audit/findings/001-a",
+      hasInvestigation: false, hasResolution: false, qaEnvs: {}, prUrl: "", dir: "/p/.audit/findings/001-a",
     },
     {
       id: "004", title: "Scripts", slug: "b", area: "runtime-infra",
       severity: "high", status: "open", confidence: "tier-1", worktree: "none",
-      hasInvestigation: false, hasResolution: false, qaStatus: "", prUrl: "", dir: "/p/.audit/findings/004-b",
+      hasInvestigation: false, hasResolution: false, qaEnvs: {}, prUrl: "", dir: "/p/.audit/findings/004-b",
     },
     {
       id: "003", title: "Done one", slug: "c", area: "auth",
       severity: "high", status: "resolved", confidence: "tier-3", worktree: "none",
-      hasInvestigation: true, hasResolution: true, qaStatus: "", prUrl: "", dir: "/p/.audit/resolved/003-c",
+      hasInvestigation: true, hasResolution: true, qaEnvs: {}, prUrl: "", dir: "/p/.audit/resolved/003-c",
     },
   ],
   coverage: [{ behavior: "x", referenceCase: "-", status: "verified", tier: "tier-3", finding: "003" }],
@@ -147,18 +147,22 @@ test("pipelineStages reflects PR/QA/coverage and currentStageIndex points to the
   const base = {
     id: "007", title: "t", slug: "s", area: "a", severity: "high",
     status: "resolved", confidence: "tier-2", worktree: "none",
-    hasInvestigation: true, hasResolution: true, qaStatus: "", prUrl: "",
+    hasInvestigation: true, hasResolution: true, qaEnvs: {}, prUrl: "",
     dir: "/x",
   };
-  // Resolved locally, no PR yet → current stage is "PR" (index 3).
+  // Resolved locally, no local QA yet → current stage is "QA local" (blocks the PR).
   const s1 = pipelineStages(base, "resolved");
   expect(s1.find((s) => s.key === "resolved")!.done).toBe(true);
-  expect(s1.find((s) => s.key === "pr")!.done).toBe(false);
-  expect(s1[currentStageIndex(s1)].key).toBe("pr");
+  expect(s1.find((s) => s.key === "qa-local")!.done).toBe(false);
+  expect(s1[currentStageIndex(s1)].key).toBe("qa-local");
 
-  // With a PR + QA approved + coverage verified → all done.
+  // Local QA approved but no PR → current stage advances to "PR".
+  const s1b = pipelineStages({ ...base, qaEnvs: { local: "approved" } }, "resolved");
+  expect(s1b[currentStageIndex(s1b)].key).toBe("pr");
+
+  // PR + local & prod QA approved + coverage verified → all done.
   const s2 = pipelineStages(
-    { ...base, prUrl: "https://x/pr/1", qaStatus: "approved" },
+    { ...base, prUrl: "https://x/pr/1", qaEnvs: { local: "approved", prod: "approved" } },
     "verified",
   );
   expect(s2.every((s) => s.done)).toBe(true);
