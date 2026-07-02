@@ -86,9 +86,12 @@ approved **and** the PR is merged. **Merge is 100% human.**
 
 `/audit-new` asks whether to isolate a finding's work in a dedicated **git worktree**.
 
-- **Yes** → creates worktree + branch `audit/NNN-<slug>` at
-  `<repo-parent>/<repo>-audit-NNN` and records `worktree: <path>` on the finding.
-  `investigate` / `resolve` / `compare` / `pr` then operate **inside that worktree**.
+- **Yes** → creates worktree + branch `audit/NNN-<slug>` **inside the repo** and records
+  `worktree: <path>` on the finding. `investigate` / `resolve` / `compare` / `pr` then operate
+  **inside that worktree**. The base directory follows the harness:
+  - **Claude Code** → `.claude/worktrees/audit-NNN-<slug>`
+  - **Any other agent** → `.audit-worktrees/audit-NNN-<slug>`
+  - The base is added to `.gitignore` so worktree contents are never committed.
 - **No** → records `worktree: none`; the branch is created by `resolve` in the main checkout.
 
 ---

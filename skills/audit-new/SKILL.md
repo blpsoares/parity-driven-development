@@ -193,8 +193,13 @@ Ask exactly:
 > - **no**: the branch is created later by `/audit-resolve` in the main checkout (current behavior).
 
 If **yes**:
-- Determine the repo root and its parent. Build the worktree path as `<repo-parent>/<repo>-audit-NNN` (absolute).
-- Run: `git worktree add <repo-parent>/<repo>-audit-NNN audit/NNN-<slug>`
+- **Choose the worktree base directory by harness convention** (worktrees live INSIDE the repo, not as a sibling):
+  - **Claude Code** (a `.claude/` directory exists at the repo root) → base = `.claude/worktrees`
+  - **Any other / incompatible harness** → base = `.audit-worktrees`
+  - (If a harness documents its own worktree location, prefer that; otherwise the two rules above.)
+- Ensure the base is git-ignored so worktree contents are never committed: if the base directory (`.claude/worktrees` or `.audit-worktrees`) is not already covered by `.gitignore`, append it.
+- Build the absolute worktree path as `<repo-root>/<base>/audit-NNN-<slug>`.
+- Run: `git worktree add <repo-root>/<base>/audit-NNN-<slug> audit/NNN-<slug>`
   - This creates the branch `audit/NNN-<slug>` and the worktree in one command.
   - If the branch already exists, use `git worktree add <path> audit/NNN-<slug>` without re-creating it.
 - Confirm the command succeeded (worktree path exists). Record `worktree: <absolute-path>` in the frontmatter.

@@ -577,12 +577,16 @@ export function renderFrame(
   cursor: number,
   live = true,
   banner: string[] = [],
+  mouseOn = true,
 ): string {
   const out: string[] = [];
   out.push(c.bold(c.cyan("PDD Board — Parity-Driven Development")));
   out.push(tabBar(tab)); // line index 1 → terminal row TAB_ROW
+  const mouseHint = mouseOn
+    ? "click on · m to select/copy"
+    : c.green("select/copy on · m for click");
   out.push(
-    c.dim("↑/↓ move · →/enter expand · ←/esc collapse · Tab switch · click too · q quit") +
+    c.dim(`↑/↓ move · →/enter expand · Tab switch · ${mouseHint} · q quit`) +
       (live ? "   " + c.green("● live") : ""),
   );
   out.push(c.dim("─".repeat(60)));
@@ -603,9 +607,12 @@ export function renderFrame(
 
 // --- Imperative shell -------------------------------------------------------
 
-// Alt screen + hide cursor + enable SGR mouse (1000 = clicks, 1006 = SGR coords).
-const ENTER = "\x1b[?1049h\x1b[?25l\x1b[?1000h\x1b[?1006h";
-const LEAVE = "\x1b[?1000l\x1b[?1006l\x1b[?25h\x1b[?1049l";
+// Alt screen + hide cursor. Mouse (SGR: 1000 = clicks, 1006 = coords) is toggled
+// separately so the user can switch to native text selection/copy with `m`.
+const ALT_ON = "\x1b[?1049h\x1b[?25l";
+const ALT_OFF = "\x1b[?25h\x1b[?1049l";
+const MOUSE_ON = "\x1b[?1000h\x1b[?1006h";
+const MOUSE_OFF = "\x1b[?1000l\x1b[?1006l";
 const CLEAR = "\x1b[2J\x1b[H";
 
 /** Launch the interactive TUI against an `.audit` directory. */
@@ -621,6 +628,7 @@ export function runTui(auditDir: string): void {
   let ui: UiState = { tab: 0, cursor: 0, expanded: new Set(DEFAULT_EXPANDED) };
   let state = readMergedAuditState(auditDir);
   let tree = buildTree(state);
+  let mouseOn = true; // clicks captured; press `m` to switch to select/copy mode
 
   const visibleRows = () => flatten(sectionsForTab(tree, ui.tab), ui.expanded);
   // The colored summary banner is shown only on the Overview tab.
@@ -630,7 +638,9 @@ export function runTui(auditDir: string): void {
   const draw = () => {
     const rows = visibleRows();
     if (ui.cursor > rows.length - 1) ui.cursor = Math.max(rows.length - 1, 0);
-    process.stdout.write(CLEAR + renderFrame(ui.tab, rows, ui.cursor, true, currentBanner()));
+    process.stdout.write(
+      CLEAR + renderFrame(ui.tab, rows, ui.cursor, true, currentBanner(), mouseOn),
+    );
   };
 
   const cleanup = () => {
@@ -638,18 +648,25 @@ export function runTui(auditDir: string): void {
       stdin.setRawMode(false);
     } catch {}
     stdin.pause();
-    process.stdout.write(LEAVE);
+    process.stdout.write(MOUSE_OFF + ALT_OFF);
     process.exit(0);
   };
 
-  process.stdout.write(ENTER);
+  process.stdout.write(ALT_ON + MOUSE_ON);
   draw();
 
   stdin.setRawMode(true);
   stdin.resume();
   stdin.setEncoding("utf8");
   stdin.on("data", (d: string) => {
-    const mouse = parseMouse(d);
+    // `m` toggles mouse capture so text selection / copy works natively.
+    if (d === "m") {
+      mouseOn = !mouseOn;
+      process.stdout.write(mouseOn ? MOUSE_ON : MOUSE_OFF);
+      draw();
+      return;
+    }
+    const mouse = mouseOn ? parseMouse(d) : null;
     if (mouse) {
       const rows = visibleRows();
       if (mouse.kind === "wheel-up") ui = reduce(ui, "up", rows);
