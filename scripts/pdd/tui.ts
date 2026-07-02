@@ -578,6 +578,7 @@ export function renderFrame(
   live = true,
   banner: string[] = [],
   mouseOn = true,
+  note = "",
 ): string {
   const out: string[] = [];
   out.push(c.bold(c.cyan("PDD Board — Parity-Driven Development")));
@@ -602,6 +603,7 @@ export function renderFrame(
     else out.push(`${indent}${marker} ${r.label}`);
   });
   out.push(c.dim("─".repeat(60)));
+  if (note) out.push(c.yellow(note));
   return out.join("\n");
 }
 
@@ -616,12 +618,12 @@ const MOUSE_OFF = "\x1b[?1000l\x1b[?1006l";
 const CLEAR = "\x1b[2J\x1b[H";
 
 /** Launch the interactive TUI against an `.audit` directory. */
-export function runTui(auditDir: string): void {
+export function runTui(auditDir: string, note = ""): void {
   const stdin = process.stdin;
   if (!stdin.isTTY) {
     const state = readMergedAuditState(auditDir);
     const rows = flatten(sectionsForTab(buildTree(state), 0), new Set(DEFAULT_EXPANDED));
-    process.stdout.write(renderFrame(0, rows, -1, false, summaryBanner(state)) + "\n");
+    process.stdout.write(renderFrame(0, rows, -1, false, summaryBanner(state), true, note) + "\n");
     return;
   }
 
@@ -639,7 +641,7 @@ export function runTui(auditDir: string): void {
     const rows = visibleRows();
     if (ui.cursor > rows.length - 1) ui.cursor = Math.max(rows.length - 1, 0);
     process.stdout.write(
-      CLEAR + renderFrame(ui.tab, rows, ui.cursor, true, currentBanner(), mouseOn),
+      CLEAR + renderFrame(ui.tab, rows, ui.cursor, true, currentBanner(), mouseOn, note),
     );
   };
 

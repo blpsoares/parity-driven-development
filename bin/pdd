@@ -7,12 +7,20 @@
 # update`. Install it once to a PATH directory (see scripts/install-cli.sh).
 set -euo pipefail
 
-root="${HOME}/.claude/plugins/cache/parity-driven-development/pdd"
-cli="$(ls -d "${root}"/*/scripts/pdd/index.ts 2>/dev/null | sort -V | tail -n 1 || true)"
+# Resolve the CLI from either install location, newest version wins:
+#   1. Claude Code plugin cache  ~/.claude/plugins/cache/.../pdd/<version>/…
+#   2. install.sh git clone      ~/.pdd/parity-driven-development/…
+cache_root="${HOME}/.claude/plugins/cache/parity-driven-development/pdd"
+clone_cli="${PDD_HOME:-$HOME/.pdd}/parity-driven-development/scripts/pdd/index.ts"
+cli="$(ls -d "${cache_root}"/*/scripts/pdd/index.ts 2>/dev/null | sort -V | tail -n 1 || true)"
+if [ -z "${cli:-}" ] && [ -f "${clone_cli}" ]; then
+  cli="${clone_cli}"
+fi
 
 if [ -z "${cli:-}" ]; then
-  echo "pdd: plugin CLI not found under ${root}" >&2
-  echo "Install the plugin first: claude plugin install pdd@parity-driven-development" >&2
+  echo "pdd: CLI not found. Install with one of:" >&2
+  echo "  claude plugin install pdd@parity-driven-development   (Claude Code)" >&2
+  echo "  curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <harness>" >&2
   exit 127
 fi
 

@@ -191,6 +191,20 @@ Tell the agent to *fetch and follow* [`INSTALL.md`](INSTALL.md), or point it at 
 `$ARGUMENTS`, that is where the user's arguments go.
 </details>
 
+## Updating
+
+**How you'll know:** the `pdd` dashboard checks GitHub for a newer version (once a day, cached,
+offline-safe) and shows a 🔔 notice when one exists. Check on demand with `pdd check`; opt out with
+`PDD_NO_UPDATE_CHECK=1`.
+
+**How to update:**
+
+| Installed via | Update command |
+|---|---|
+| Claude Code plugin | `claude plugin update pdd@parity-driven-development` (then `pdd init` to refresh other agents' commands) |
+| `install.sh` / git clone | `pdd update` — pulls the latest and re-generates your agents' command files |
+| Codex / Cursor / Copilot / Gemini | re-run `install.sh <harness>` (or `pdd update`) — the generated command files are static snapshots and don't auto-update |
+
 ## Confidence tiers
 
 Every finding carries a confidence tier describing the **quality of its evidence**.

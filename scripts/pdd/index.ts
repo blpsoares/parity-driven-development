@@ -15,6 +15,16 @@ import { renderBoard } from "./render";
 import { runTui } from "./tui";
 import { adaptAll, type Harness } from "./adapt";
 import { runMenu } from "./prompt";
+import {
+  cachedNotice,
+  checkNow,
+  readInstalledVersion,
+  refreshCacheIfStale,
+} from "./update";
+import { spawnSync } from "node:child_process";
+
+/** The repo root of the running CLI (two levels up from scripts/pdd). */
+const PLUGIN_ROOT = join(import.meta.dir, "..", "..");
 
 /** Walk up from `start` looking for a directory that contains `.audit`. */
 function findAuditUpwards(start: string): string | null {
@@ -101,6 +111,38 @@ function detectHarnesses(all: Harness[], projectRoot: string): Harness[] {
   return all.filter((h) => map[h]);
 }
 
+/** Self-update: `git pull` a clone install and re-adapt; else guide the user. */
+async function runUpdate(): Promise<void> {
+  const isGitClone = existsSync(join(PLUGIN_ROOT, ".git"));
+  if (!isGitClone) {
+    // Running from the Claude Code plugin cache (managed by Claude).
+    process.stdout.write(
+      "This PDD is installed as a Claude Code plugin. Update it with:\n" +
+        "  claude plugin update pdd@parity-driven-development\n" +
+        "Then run 'pdd init' to refresh any Codex/Cursor/Copilot/Gemini command files.\n",
+    );
+    return;
+  }
+  process.stdout.write("Updating PDD…\n");
+  const pull = spawnSync("git", ["-C", PLUGIN_ROOT, "pull", "--ff-only"], {
+    encoding: "utf8",
+  });
+  process.stdout.write((pull.stdout || "") + (pull.stderr || ""));
+  if (pull.status !== 0) {
+    process.stdout.write("git pull failed — resolve it and retry.\n");
+    return;
+  }
+  // Re-generate command files for any agents already present.
+  const all: Harness[] = ["codex", "cursor", "copilot", "gemini"];
+  const skillsDir = join(PLUGIN_ROOT, "skills");
+  const detected = detectHarnesses(all, process.cwd());
+  for (const harness of detected) {
+    const written = adaptAll(harness, { skillsDir, projectRoot: process.cwd(), global: false });
+    process.stdout.write(`↻ ${harness}: ${written.length} command(s) refreshed\n`);
+  }
+  process.stdout.write(`✅ Updated to ${readInstalledVersion(PLUGIN_ROOT)}.\n`);
+}
+
 /** Install PDD commands — interactive (specify-init style) when run in a TTY. */
 async function runInit(args: string[]): Promise<void> {
   const all: Harness[] = ["codex", "cursor", "copilot", "gemini"];
@@ -164,6 +206,21 @@ async function main(argv: string[]): Promise<void> {
   const args = argv.slice(2);
   const command = args[0] ?? "tui"; // no command → interactive TUI
 
+  if (command === "version" || command === "--version" || command === "-v") {
+    process.stdout.write(`pdd ${readInstalledVersion(PLUGIN_ROOT)}\n`);
+    return;
+  }
+
+  if (command === "check") {
+    process.stdout.write((await checkNow(PLUGIN_ROOT, Date.now())) + "\n");
+    return;
+  }
+
+  if (command === "update") {
+    await runUpdate();
+    return;
+  }
+
   if (command === "init") {
     await runInit(args);
     return;
@@ -203,7 +260,10 @@ async function main(argv: string[]): Promise<void> {
         "  pdd board --watch [path]  Static auto-refresh on .audit changes\n" +
         "  pdd prune [path]          Remove stale/orphaned activity records\n" +
         "  pdd init [harness...]     Install PDD commands into detected agents (or the ones given)\n" +
-        "  pdd adapt <harness>       Generate command files for one of Codex/Cursor/Copilot/Gemini\n\n" +
+        "  pdd adapt <harness>       Generate command files for one of Codex/Cursor/Copilot/Gemini\n" +
+        "  pdd check                 Check whether a newer PDD version is available\n" +
+        "  pdd update                Update PDD (git clone) or show how (Claude plugin)\n" +
+        "  pdd version               Print the installed version\n\n" +
         "With no [path], pdd walks up from the current directory to find .audit.\n",
     );
     process.exitCode = 1;
@@ -224,11 +284,14 @@ async function main(argv: string[]): Promise<void> {
       for (const f of removed) process.stdout.write(`  ${f}\n`);
     }
   } else if (command === "tui") {
-    runTui(auditDir);
+    refreshCacheIfStale(Date.now());
+    runTui(auditDir, cachedNotice(PLUGIN_ROOT) ?? undefined);
   } else if (watchMode) {
     watchBoard(auditDir);
   } else {
     renderOnce(auditDir);
+    const notice = cachedNotice(PLUGIN_ROOT);
+    if (notice) process.stdout.write("\n" + notice + "\n");
   }
 }
 
