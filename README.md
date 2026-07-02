@@ -193,9 +193,12 @@ Tell the agent to *fetch and follow* [`INSTALL.md`](INSTALL.md), or point it at 
 
 ## Updating
 
-**How you'll know:** the `pdd` dashboard checks GitHub for a newer version (once a day, cached,
-offline-safe) and shows a 🔔 notice when one exists. Check on demand with `pdd check`; opt out with
-`PDD_NO_UPDATE_CHECK=1`.
+**How you'll know:**
+- **In Claude Code:** a SessionStart hook checks for a newer version and, when one exists, the
+  assistant proactively tells you, offers to summarize what's new (from the CHANGELOG), and offers to
+  run the update for you — once per version, never nagging.
+- **In the terminal:** the `pdd` dashboard shows a 🔔 notice (checked once a day, cached, offline-safe).
+- On demand: `pdd check`. Opt out of all of it with `PDD_NO_UPDATE_CHECK=1`.
 
 **How to update:**
 
