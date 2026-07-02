@@ -36,12 +36,12 @@ it from the new marketplace above. PDD moved to its own dedicated repo.
 
 ---
 
-## The cycle (QA before merge)
+## The cycle (multi-phase QA)
 
 Run these skills one at a time. Each is gated: it refuses to advance on insufficient input.
 
 ```
-/audit-bootstrap            once — captures preview/branch config, coverage baseline, thresholds
+/audit-bootstrap            once — captures QA environments, coverage baseline, thresholds
         │
         ▼
 /audit-new <desc>           → finding NNN (+ initial confidence score, + coverage entry)
@@ -51,7 +51,7 @@ Run these skills one at a time. Each is gated: it refuses to advance on insuffic
         │
         ▼
 /audit-resolve NNN          → fix + characterization test + parity evidence
-        │                      creates branch audit/NNN · does NOT commit
+        │                      creates branch audit/NNN · does NOT commit · coverage → resolved
         ▼
    (human commits)
         │
@@ -59,19 +59,28 @@ Run these skills one at a time. Each is gated: it refuses to advance on insuffic
 /audit-compare NNN          → golden-master harness: runs both systems, produces objective diff
         │
         ▼
-/audit-pr NNN               → assembles the PR evidence dossier
-        │                      push + gh pr create ONLY after human "yes" · opens QA on the branch
-        ▼
-/audit-qa NNN               → QA cards point at the branch/preview (testable, PR still OPEN)
+/audit-qa NNN local         → QA on LOCALHOST, BEFORE the PR. Approval unblocks /audit-pr.
         │
-        ├─ ✅ all approved   → "🟢 QA approved — you may merge PR #X"   (a HUMAN merges)
-        └─ ❌ rejected       → new finding on the SAME branch, loop back
+        ▼
+/audit-pr NNN               → assembles the PR dossier. BLOCKS unless qa-local is approved.
+        │                      push + gh pr create ONLY after human "yes"
+        ▼
+   (deploy to dev / staging / prod)
+        │
+        ▼
+/audit-qa NNN staging|prod  → QA on the deployed ENVIRONMENT, AFTER the PR. Records qa-<env>.
+        │
+        ├─ ✅ target-env QA approved + PR merged → coverage → verified (a HUMAN merges)
+        └─ ❌ rejected  → follow-up finding on the SAME branch (pre-merge) or a new one (post-deploy)
 
 /audit-status  ·  pdd board --watch     (at any moment)
 ```
 
-**Golden rule of `audit-qa`:** QA runs once the **PR is open and testable** (branch or
-preview), *before* merge — never after. **QA is the merge gate.**
+**QA is multi-phase.** It runs **local** (localhost, *before* the PR — its approval is a blocking
+precondition of `/audit-pr`) and per **deployment environment** (dev/staging/prod, *after* the
+PR/deploy). Per-environment status is stored as `qa-<env>` on the finding. Coverage only becomes
+`verified` when the **target environment** (`QA_TARGET_ENV`, default the last in the chain) is
+approved **and** the PR is merged. **Merge is 100% human.**
 
 ### Worktree option
 
@@ -88,13 +97,13 @@ preview), *before* merge — never after. **QA is the merge gate.**
 
 | Skill | What it does |
 |---|---|
-| `/audit-bootstrap` | One-time interview. Captures reference-vs-new adapters, preview/branch mode, seeds the coverage map, sets confidence thresholds. |
+| `/audit-bootstrap` | One-time interview. Captures reference-vs-new adapters, QA environments (`QA_ENVIRONMENTS` + `QA_TARGET_ENV`), preview/branch mode, seeds the coverage map, sets confidence thresholds. |
 | `/audit-new <desc>` | Opens finding `NNN`, computes an initial confidence tier, adds a coverage entry, and asks the worktree-isolation question. |
 | `/audit-investigate NNN` | Read-only root-cause investigation of the reference behavior. |
 | `/audit-resolve NNN` | Fix + mandatory characterization test + machine-readable `evidence` block. Creates branch `audit/NNN`, does **not** commit. Blocks below `CONFIDENCE_MIN`. |
 | `/audit-compare NNN` | **Golden-master harness.** Runs the same operation on both systems (CLI / DB / API / browser adapter) and emits an objective data-to-data diff (Tier 2 evidence). Read-only, confirms every query first. |
-| `/audit-pr NNN` | Assembles the PR as an **evidence dossier** (symptom→cause→fix, tier, checks, characterization test, parity diff, paired screenshots, QA checklist). Pushes and opens the PR **only after an explicit human "yes."** |
-| `/audit-qa NNN` | QA against the open PR's branch/preview. All approved → signals "you may merge"; rejected → new finding on the same branch. |
+| `/audit-pr NNN` | Assembles the PR as an **evidence dossier** (symptom→cause→fix, tier, checks, characterization test, parity diff, paired screenshots, QA checklist). **Blocks unless `qa-local` is approved.** Pushes and opens the PR **only after an explicit human "yes."** |
+| `/audit-qa NNN <env>` | Multi-phase QA. `local` runs on localhost **before** the PR (unblocks `/audit-pr`); `dev`/`staging`/`prod` run **after** the PR/deploy on that environment. Records `qa-<env>`. Coverage → `verified` only when the target env is approved **and** the PR is merged. |
 | `/audit-status` | In-chat panel: parity-coverage %, confidence distribution, active tasks, suggested next actions. |
 
 ---
