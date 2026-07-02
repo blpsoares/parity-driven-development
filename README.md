@@ -108,24 +108,33 @@ approved **and** the PR is merged. **Merge is 100% human.**
 
 ---
 
-## Using PDD in other agents (Codex, Cursor, Copilot, Gemini…)
+## Install in any agent
 
 PDD's method (`.audit/`) and the `pdd` CLI are **harness-agnostic** — only the way each agent
-registers slash commands differs. The `pdd adapt` command generates the right files from the
-canonical skills. Run it in your project (add `--global` to install into your home config):
+registers slash commands differs. PDD is command-based (like `specify init`), not hook-based, so
+installing just scaffolds the right command files.
 
-| Agent | Command | Output | Invoke |
+**Universal installer** (needs `git` + [`bun`](https://bun.sh); works with no Claude Code):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <codex|cursor|copilot|gemini|all>
+```
+
+**Per agent:**
+
+| Agent | Install | Output | Invoke |
 |---|---|---|---|
-| **Claude Code** | *(native)* `claude plugin install pdd@parity-driven-development --scope project` | plugin | `/audit-new` |
-| **Codex** | `pdd adapt codex` | `.codex/prompts/audit-*.md` | `/audit-new` |
-| **Cursor** | `pdd adapt cursor` | `.cursor/commands/audit-*.md` | `/audit-new` |
-| **Copilot** (VS Code/JetBrains) | `pdd adapt copilot` | `.github/prompts/audit-*.prompt.md` | `/audit-new` |
-| **Gemini CLI** | `pdd adapt gemini` | `.gemini/commands/audit-*.toml` | `/audit-new` |
-| **Anything else** | point it at [`AGENTS.md`](AGENTS.md) + `skills/` | — | read the SKILL.md |
+| **Claude Code** | `/plugin marketplace add blpsoares/parity-driven-development` + `claude plugin install pdd@parity-driven-development --scope project` | plugin | `/audit-new` |
+| **Codex** | `install.sh codex` *(or `pdd adapt codex`)* | `.codex/prompts/audit-*.md` | `/audit-new` |
+| **Cursor** | `install.sh cursor` | `.cursor/commands/audit-*.md` | `/audit-new` |
+| **Copilot** (VS Code/JetBrains) | `install.sh copilot` | `.github/prompts/audit-*.prompt.md` | `/audit-new` |
+| **Gemini CLI** | `install.sh gemini` | `.gemini/commands/audit-*.toml` | `/audit-new` |
+| **Anything else** | tell it to *fetch and follow* [`INSTALL.md`](INSTALL.md), or read [`AGENTS.md`](AGENTS.md) + `skills/` | — | read the SKILL.md |
 
-Notes: the GitHub **Copilot CLI** does not yet support user slash commands (only the IDEs do).
-For agents that read `AGENTS.md` (including Antigravity), the generic guide in
-[`AGENTS.md`](AGENTS.md) documents the whole method and command set.
+Already have the CLI? **`pdd init`** auto-detects your installed agents and installs into all of them
+(add `--global` for your home config). Notes: the GitHub **Copilot CLI** does not yet support user
+slash commands (only the IDEs do); for agents that read `AGENTS.md` (including Antigravity), the
+generic guide documents the whole method.
 
 ## Confidence tiers
 

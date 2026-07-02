@@ -85,10 +85,48 @@ function watchBoard(auditDir: string): void {
   }
 }
 
+/** Detect which agents are present, by a binary on PATH or a config directory. */
+function detectHarnesses(all: Harness[], projectRoot: string): Harness[] {
+  const home = process.env.HOME ?? "";
+  const has = (bin: string, dir: string) =>
+    Boolean(Bun.which(bin)) || (dir !== "" && existsSync(dir));
+  const map: Record<Harness, boolean> = {
+    codex: has("codex", join(home, ".codex")),
+    cursor: has("cursor", join(home, ".cursor")),
+    gemini: has("gemini", join(home, ".gemini")),
+    // Copilot is a VS Code/JetBrains feature — infer from a project .github dir.
+    copilot: existsSync(join(projectRoot, ".github")),
+  };
+  return all.filter((h) => map[h]);
+}
+
 /** Parse argv and dispatch. */
 function main(argv: string[]): void {
   const args = argv.slice(2);
   const command = args[0] ?? "tui"; // no command → interactive TUI
+
+  if (command === "init") {
+    const all: Harness[] = ["codex", "cursor", "copilot", "gemini"];
+    const global = args.includes("--global");
+    const projectRoot = process.cwd();
+    const skillsDir = join(import.meta.dir, "..", "..", "skills");
+    const explicit = args.slice(1).filter((a): a is Harness => all.includes(a as Harness));
+    const targets = explicit.length > 0 ? explicit : detectHarnesses(all, projectRoot);
+    if (targets.length === 0) {
+      process.stdout.write(
+        "No agent detected. Install for a specific one, e.g.:\n" +
+          "  pdd init codex        pdd init cursor       pdd init gemini\n" +
+          "  pdd init copilot      pdd adapt <harness> --global\n",
+      );
+      return;
+    }
+    for (const harness of targets) {
+      const written = adaptAll(harness, { skillsDir, projectRoot, global });
+      process.stdout.write(`✅ ${harness}: ${written.length} command file(s)\n`);
+    }
+    process.stdout.write("\nStart a project with: /audit-bootstrap\n");
+    return;
+  }
 
   if (command === "adapt") {
     const harnesses: Harness[] = ["codex", "cursor", "copilot", "gemini"];
@@ -123,7 +161,8 @@ function main(argv: string[]): void {
         "  pdd board [path]          Print a static snapshot once\n" +
         "  pdd board --watch [path]  Static auto-refresh on .audit changes\n" +
         "  pdd prune [path]          Remove stale/orphaned activity records\n" +
-        "  pdd adapt <harness>       Generate command files for Codex/Cursor/Copilot/Gemini\n\n" +
+        "  pdd init [harness...]     Install PDD commands into detected agents (or the ones given)\n" +
+        "  pdd adapt <harness>       Generate command files for one of Codex/Cursor/Copilot/Gemini\n\n" +
         "With no [path], pdd walks up from the current directory to find .audit.\n",
     );
     process.exitCode = 1;
