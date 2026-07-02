@@ -123,7 +123,7 @@ export function pipelineStages(f: Finding, coverageStatus: string): Stage[] {
   const localApproved = qa.local === "approved";
   // Any deployment environment (not "local") approved → environment QA passed.
   const envApproved = Object.entries(qa).some(([e, s]) => e !== "local" && s === "approved");
-  return [
+  const stages: Stage[] = [
     { key: "new", label: "new", done: true },
     { key: "investigated", label: "investigated", done: f.hasInvestigation || resolved },
     { key: "resolved", label: "resolved", done: resolved },
@@ -132,6 +132,13 @@ export function pipelineStages(f: Finding, coverageStatus: string): Stage[] {
     { key: "qa-env", label: "QA env", done: envApproved },
     { key: "verified", label: "verified", done: coverageStatus === "verified" },
   ];
+  // Monotonic: reaching a later stage implies every earlier one is done. This
+  // keeps the pipeline coherent when a project has no deployment env (QA env is
+  // N/A) or when a prUrl wasn't recorded but the finding is already verified.
+  for (let i = stages.length - 2; i >= 0; i--) {
+    if (stages[i + 1].done) stages[i].done = true;
+  }
+  return stages;
 }
 
 /** The 0-based index of the current stage (first not-done, or last when all done). */

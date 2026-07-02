@@ -183,3 +183,17 @@ test("Flow and Legend tabs exist and render their sections", () => {
   expect(overviewIds).not.toContain("sec:flow");
   expect(overviewIds).not.toContain("sec:legend");
 });
+
+test("pipelineStages is monotonic — a later done stage implies earlier ones", () => {
+  const base = {
+    id: "001", title: "t", slug: "s", area: "a", severity: "high",
+    status: "resolved", confidence: "tier-3", worktree: "none",
+    hasInvestigation: true, hasResolution: true, qaEnvs: { local: "approved" }, prUrl: "",
+    dir: "/x",
+  };
+  // verified (coverage) but no prUrl and no env QA → all stages still show done.
+  const s = pipelineStages(base, "verified");
+  expect(s.every((st) => st.done)).toBe(true);
+  expect(s.find((st) => st.key === "pr")!.done).toBe(true); // implied by verified
+  expect(s.find((st) => st.key === "qa-env")!.done).toBe(true); // N/A but implied
+});
