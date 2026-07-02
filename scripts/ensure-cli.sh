@@ -14,5 +14,5 @@ command -v pdd >/dev/null 2>&1 && exit 0
 [ -f "${HOME}/.config/pdd/no-cli" ] && exit 0
 
 installer="${CLAUDE_PLUGIN_ROOT:-<plugin>}/scripts/install-cli.sh"
-echo "PDD tip: enable the live dashboard once with:  bash ${installer}"
-echo "         then run 'pdd board --watch'.  (silence this: touch ~/.config/pdd/no-cli)"
+echo "PDD tip: enable the interactive dashboard once with:  bash ${installer}"
+echo "         then run 'pdd' (navigable TUI).  (silence this: touch ~/.config/pdd/no-cli)"

@@ -153,9 +153,16 @@ bash ~/.claude/plugins/cache/parity-driven-development/pdd/*/scripts/install-cli
 Then, from any project that ran `/audit-bootstrap`:
 
 ```
-pdd board            # single ANSI snapshot: findings by state, coverage %, confidence, active tasks
-pdd board --watch    # live — re-renders whenever .audit/ changes (fs.watch)
+pdd                  # interactive, navigable dashboard (default) — ↑/↓ move, →/enter expand, ←/esc collapse, q quit
+pdd tui              # same interactive dashboard, explicit
+pdd board            # static ANSI snapshot (good for piping/CI)
+pdd board --watch    # static auto-refresh whenever .audit/ changes (fs.watch)
 ```
+
+The interactive TUI shows a collapsible tree: **Coverage**, **Worktrees** (expand a worktree
+to see its branch, full path and findings), **Findings** grouped by lifecycle (open /
+in-progress / done, each listing the finding ids), and **Active now** (live executions across
+agents and worktrees). It refreshes live as `.audit/` changes.
 
 It reads `board.md`, the findings' frontmatter, `coverage.md`, and the `evidence` blocks of
 the resolutions. The CLI is optional — `/audit-status` covers the same ground in chat if

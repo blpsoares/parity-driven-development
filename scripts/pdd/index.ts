@@ -12,6 +12,7 @@ import { watch, existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
 import { readMergedAuditState } from "./state";
 import { renderBoard } from "./render";
+import { runTui } from "./tui";
 
 /** Resolve the `.audit` directory from an optional path argument. */
 function resolveAuditDir(pathArg?: string): string {
@@ -74,16 +75,18 @@ function watchBoard(auditDir: string): void {
 /** Parse argv and dispatch. */
 function main(argv: string[]): void {
   const args = argv.slice(2);
-  const command = args[0];
+  const command = args[0] ?? "tui"; // no command → interactive TUI
 
-  if (command !== "board") {
+  if (command !== "board" && command !== "tui") {
     process.stdout.write(
       "pdd — Parity-Driven Development dashboard\n\n" +
         "Usage:\n" +
-        "  pdd board [path]          Print the dashboard once\n" +
-        "  pdd board --watch [path]  Live re-render on .audit changes\n",
+        "  pdd                       Interactive, navigable dashboard (default)\n" +
+        "  pdd tui [path]            Interactive dashboard (↑/↓ navigate, →/enter expand, q quit)\n" +
+        "  pdd board [path]          Print a static snapshot once\n" +
+        "  pdd board --watch [path]  Static auto-refresh on .audit changes\n",
     );
-    process.exitCode = command ? 1 : 0;
+    process.exitCode = 1;
     return;
   }
 
@@ -92,7 +95,9 @@ function main(argv: string[]): void {
   const pathArg = rest.find((a) => !a.startsWith("--"));
   const auditDir = resolveAuditDir(pathArg);
 
-  if (watchMode) {
+  if (command === "tui") {
+    runTui(auditDir);
+  } else if (watchMode) {
     watchBoard(auditDir);
   } else {
     renderOnce(auditDir);
