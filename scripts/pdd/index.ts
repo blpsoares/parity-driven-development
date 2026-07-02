@@ -13,6 +13,7 @@ import { join, resolve, isAbsolute, dirname } from "node:path";
 import { readMergedAuditState, pruneStaleActivity } from "./state";
 import { renderBoard } from "./render";
 import { runTui } from "./tui";
+import { adaptAll, type Harness } from "./adapt";
 
 /** Walk up from `start` looking for a directory that contains `.audit`. */
 function findAuditUpwards(start: string): string | null {
@@ -89,6 +90,30 @@ function main(argv: string[]): void {
   const args = argv.slice(2);
   const command = args[0] ?? "tui"; // no command → interactive TUI
 
+  if (command === "adapt") {
+    const harnesses: Harness[] = ["codex", "cursor", "copilot", "gemini"];
+    const harness = args[1] as Harness;
+    if (!harnesses.includes(harness)) {
+      process.stdout.write(
+        `Usage: pdd adapt <${harnesses.join("|")}> [--global] [project-dir]\n` +
+          "Generates PDD slash-command / prompt files for that agent from the canonical skills.\n",
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const global = args.includes("--global");
+    const projectRoot = args.slice(2).find((a) => !a.startsWith("-")) ?? process.cwd();
+    const skillsDir = join(import.meta.dir, "..", "..", "skills");
+    const written = adaptAll(harness, { skillsDir, projectRoot, global });
+    if (written.length === 0) {
+      process.stdout.write("No skills found to adapt.\n");
+    } else {
+      process.stdout.write(`Wrote ${written.length} ${harness} command file(s):\n`);
+      for (const f of written) process.stdout.write(`  ${f}\n`);
+    }
+    return;
+  }
+
   if (command !== "board" && command !== "tui" && command !== "prune") {
     process.stdout.write(
       "pdd — Parity-Driven Development dashboard\n\n" +
@@ -97,7 +122,8 @@ function main(argv: string[]): void {
         "  pdd tui [path]            Interactive dashboard (↑/↓ navigate, →/enter expand, q quit)\n" +
         "  pdd board [path]          Print a static snapshot once\n" +
         "  pdd board --watch [path]  Static auto-refresh on .audit changes\n" +
-        "  pdd prune [path]          Remove stale/orphaned activity records\n\n" +
+        "  pdd prune [path]          Remove stale/orphaned activity records\n" +
+        "  pdd adapt <harness>       Generate command files for Codex/Cursor/Copilot/Gemini\n\n" +
         "With no [path], pdd walks up from the current directory to find .audit.\n",
     );
     process.exitCode = 1;

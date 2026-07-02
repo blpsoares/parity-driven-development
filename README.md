@@ -108,6 +108,25 @@ approved **and** the PR is merged. **Merge is 100% human.**
 
 ---
 
+## Using PDD in other agents (Codex, Cursor, Copilot, Gemini…)
+
+PDD's method (`.audit/`) and the `pdd` CLI are **harness-agnostic** — only the way each agent
+registers slash commands differs. The `pdd adapt` command generates the right files from the
+canonical skills. Run it in your project (add `--global` to install into your home config):
+
+| Agent | Command | Output | Invoke |
+|---|---|---|---|
+| **Claude Code** | *(native)* `claude plugin install pdd@parity-driven-development --scope project` | plugin | `/audit-new` |
+| **Codex** | `pdd adapt codex` | `.codex/prompts/audit-*.md` | `/audit-new` |
+| **Cursor** | `pdd adapt cursor` | `.cursor/commands/audit-*.md` | `/audit-new` |
+| **Copilot** (VS Code/JetBrains) | `pdd adapt copilot` | `.github/prompts/audit-*.prompt.md` | `/audit-new` |
+| **Gemini CLI** | `pdd adapt gemini` | `.gemini/commands/audit-*.toml` | `/audit-new` |
+| **Anything else** | point it at [`AGENTS.md`](AGENTS.md) + `skills/` | — | read the SKILL.md |
+
+Notes: the GitHub **Copilot CLI** does not yet support user slash commands (only the IDEs do).
+For agents that read `AGENTS.md` (including Antigravity), the generic guide in
+[`AGENTS.md`](AGENTS.md) documents the whole method and command set.
+
 ## Confidence tiers
 
 Every finding carries a confidence tier describing the **quality of its evidence**.
