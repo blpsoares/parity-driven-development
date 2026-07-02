@@ -21,7 +21,7 @@ to install into your home config instead of the project. This also installs the 
 | Agent | Command |
 |---|---|
 | **Claude Code** | `/plugin marketplace add blpsoares/parity-driven-development` then `claude plugin install pdd@parity-driven-development --scope project` |
-| **Codex** | `install.sh codex` → `.codex/prompts/audit-*.md` |
+| **Codex** | `install.sh codex` → `~/.codex/prompts/audit-*.md` (home) |
 | **Cursor** | `install.sh cursor` → `.cursor/commands/audit-*.md` |
 | **Copilot** (VS Code/JetBrains) | `install.sh copilot` → `.github/prompts/audit-*.prompt.md` |
 | **Gemini CLI** | `install.sh gemini` → `.gemini/commands/audit-*.toml` |

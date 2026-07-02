@@ -56,8 +56,18 @@ test("cursor writes commands/<name>.md and rewrites the arg token", () => {
   expect(out.content).not.toContain("$ARGUMENTS");
 });
 
-test("baseDirFor honors global vs project", () => {
-  expect(baseDirFor("codex", "/proj", false)).toBe("/proj/.codex");
+test("baseDirFor honors global vs project (Codex is always home)", () => {
+  // Codex only reads ~/.codex — never the project dir.
+  expect(baseDirFor("codex", "/proj", false)).not.toContain("/proj");
+  expect(baseDirFor("codex", "/proj", false)).toContain(".codex");
   expect(baseDirFor("copilot", "/proj", false)).toBe("/proj");
+  expect(baseDirFor("cursor", "/proj", false)).toBe("/proj/.cursor");
   expect(baseDirFor("gemini", "/proj", true)).toContain(".gemini");
+});
+
+test("adapted commands are agent-neutral (no 'Claude' leakage)", () => {
+  const skill = parseSkill(SAMPLE.replace("$ARGUMENTS", "$ARGUMENTS between the dev and Claude"));
+  for (const h of ["codex", "cursor", "copilot", "gemini"] as const) {
+    expect(renderSkillFor(h, skill).content).not.toContain("Claude");
+  }
 });

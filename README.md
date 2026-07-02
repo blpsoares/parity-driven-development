@@ -125,7 +125,7 @@ curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development
 | Agent | Install | Output | Invoke |
 |---|---|---|---|
 | **Claude Code** | `/plugin marketplace add blpsoares/parity-driven-development` + `claude plugin install pdd@parity-driven-development --scope project` | plugin | `/audit-new` |
-| **Codex** | `install.sh codex` *(or `pdd adapt codex`)* | `.codex/prompts/audit-*.md` | `/audit-new` |
+| **Codex** | `install.sh codex` *(or `pdd adapt codex`)* | `~/.codex/prompts/audit-*.md` (home) | `/audit-new` |
 | **Cursor** | `install.sh cursor` | `.cursor/commands/audit-*.md` | `/audit-new` |
 | **Copilot** (VS Code/JetBrains) | `install.sh copilot` | `.github/prompts/audit-*.prompt.md` | `/audit-new` |
 | **Gemini CLI** | `install.sh gemini` | `.gemini/commands/audit-*.toml` | `/audit-new` |

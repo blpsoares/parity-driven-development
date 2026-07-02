@@ -39,12 +39,18 @@ function withArgs(body: string, harness: Harness): string {
   return body.split("$ARGUMENTS").join(ARG_TOKEN[harness]);
 }
 
+/** Make adapted commands agent-neutral (they run outside Claude Code). */
+function deClaude(s: string): string {
+  return s.replace(/\bClaude Code\b/g, "the agent").replace(/\bClaude\b/g, "the agent");
+}
+
 /** Render one skill for a harness → the relative output path and file content. */
 export function renderSkillFor(
   harness: Harness,
   skill: Skill,
 ): { relPath: string; content: string } {
-  const body = withArgs(skill.body, harness);
+  const body = deClaude(withArgs(skill.body, harness));
+  const description = deClaude(skill.description);
   switch (harness) {
     case "codex":
       return { relPath: `prompts/${skill.name}.md`, content: body + "\n" };
@@ -53,13 +59,13 @@ export function renderSkillFor(
     case "copilot":
       return {
         relPath: `.github/prompts/${skill.name}.prompt.md`,
-        content: `---\ndescription: "${skill.description.replace(/"/g, "'")}"\n---\n\n${body}\n`,
+        content: `---\ndescription: "${description.replace(/"/g, "'")}"\n---\n\n${body}\n`,
       };
     case "gemini": {
       const prompt = body.split('"""').join('\\"\\"\\"');
       return {
         relPath: `commands/${skill.name}.toml`,
-        content: `description = "${skill.description.replace(/"/g, "'")}"\nprompt = """\n${prompt}\n"""\n`,
+        content: `description = "${description.replace(/"/g, "'")}"\nprompt = """\n${prompt}\n"""\n`,
       };
     }
   }
@@ -70,7 +76,9 @@ export function baseDirFor(harness: Harness, projectRoot: string, global: boolea
   const home = homedir();
   switch (harness) {
     case "codex":
-      return global ? join(home, ".codex") : join(projectRoot, ".codex");
+      // Codex only reads prompts from $CODEX_HOME (default ~/.codex) — a
+      // project-level .codex is NOT discovered, so always install to home.
+      return join(home, ".codex");
     case "cursor":
       return global ? join(home, ".cursor") : join(projectRoot, ".cursor");
     case "gemini":
