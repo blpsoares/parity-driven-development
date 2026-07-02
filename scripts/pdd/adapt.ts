@@ -99,10 +99,76 @@ export function readSkills(skillsDir: string): Skill[] {
   return out.filter((s) => s.name);
 }
 
-/** Generate all command files for a harness. Returns the absolute paths written. */
+/**
+ * The always-on PDD rule installed for non-Claude agents. Because those harnesses
+ * have no session hook, this static rule tells the agent to check for updates via
+ * the `pdd` CLI — giving the same proactive behavior the Claude Code hook provides.
+ */
+export function rulesBody(): string {
+  return [
+    "This project uses PDD (Parity-Driven Development) — a framework for tracking behavioral parity during refactors, rewrites and ports.",
+    "",
+    "**Update awareness:** when you begin PDD work here, run `pdd check` in the terminal. If it reports a `🔔 update available` notice, tell the user in one short line, offer to summarize what changed (the CHANGELOG), and offer to run `pdd update`. Do not bring it up again if they decline.",
+    "",
+    "Commands: `/audit-bootstrap`, `/audit-new`, `/audit-investigate`, `/audit-resolve`, `/audit-compare`, `/audit-qa <env>`, `/audit-pr`, `/audit-status`. Full method and reference: `AGENTS.md`.",
+  ].join("\n");
+}
+
+/** Where the always-on rule goes for a harness, and how to write it. */
+export function rulesTargetFor(
+  harness: Harness,
+): { relPath: string; mode: "overwrite" | "block" } {
+  switch (harness) {
+    case "cursor":
+      return { relPath: ".cursor/rules/pdd.mdc", mode: "overwrite" };
+    case "copilot":
+      return { relPath: ".github/instructions/pdd.instructions.md", mode: "overwrite" };
+    case "codex":
+      return { relPath: "AGENTS.md", mode: "block" };
+    case "gemini":
+      return { relPath: "GEMINI.md", mode: "block" };
+  }
+}
+
+/** Full file content for the "overwrite" harnesses (adds the required frontmatter). */
+export function rulesFileContent(harness: Harness): string {
+  const body = rulesBody();
+  if (harness === "cursor")
+    return `---\ndescription: PDD update-awareness and command reference\nalwaysApply: true\n---\n\n${body}\n`;
+  if (harness === "copilot") return `---\napplyTo: "**"\n---\n\n${body}\n`;
+  return body;
+}
+
+const PDD_BEGIN = "<!-- PDD:BEGIN (managed by pdd) -->";
+const PDD_END = "<!-- PDD:END -->";
+
+/** Insert or replace the PDD marked block in a shared instructions file. */
+export function upsertBlock(existing: string, body: string): string {
+  const block = `${PDD_BEGIN}\n${body}\n${PDD_END}`;
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(esc(PDD_BEGIN) + "[\\s\\S]*?" + esc(PDD_END));
+  if (re.test(existing)) return existing.replace(re, block);
+  return (existing.trim() ? existing.trimEnd() + "\n\n" : "") + block + "\n";
+}
+
+/** Write the always-on rule for a harness into the project. Returns its path. */
+export function writeRules(harness: Harness, projectRoot: string): string {
+  const { relPath, mode } = rulesTargetFor(harness);
+  const target = join(projectRoot, relPath);
+  mkdirSync(join(target, ".."), { recursive: true });
+  if (mode === "overwrite") {
+    writeFileSync(target, rulesFileContent(harness));
+  } else {
+    const existing = existsSync(target) ? readFileSync(target, "utf8") : "";
+    writeFileSync(target, upsertBlock(existing, rulesBody()));
+  }
+  return target;
+}
+
+/** Generate all command files (and the always-on rule) for a harness. */
 export function adaptAll(
   harness: Harness,
-  opts: { skillsDir: string; projectRoot: string; global: boolean },
+  opts: { skillsDir: string; projectRoot: string; global: boolean; rules?: boolean },
 ): string[] {
   const base = baseDirFor(harness, opts.projectRoot, opts.global);
   const written: string[] = [];
@@ -113,5 +179,6 @@ export function adaptAll(
     writeFileSync(target, content);
     written.push(target);
   }
+  if (opts.rules !== false) written.push(writeRules(harness, opts.projectRoot));
   return written;
 }

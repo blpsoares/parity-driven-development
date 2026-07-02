@@ -194,7 +194,7 @@ async function runInit(args: string[]): Promise<void> {
 
   process.stdout.write("\n");
   for (const harness of targets) {
-    const written = adaptAll(harness, { skillsDir, projectRoot, global });
+    const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
     const where = harness === "codex" ? "~/.codex (home)" : global ? "home config" : "project";
     process.stdout.write(`✅ ${harness} → ${written.length} command(s) in ${where}\n`);
   }
@@ -240,7 +240,7 @@ async function main(argv: string[]): Promise<void> {
     const global = args.includes("--global");
     const projectRoot = args.slice(2).find((a) => !a.startsWith("-")) ?? process.cwd();
     const skillsDir = join(import.meta.dir, "..", "..", "skills");
-    const written = adaptAll(harness, { skillsDir, projectRoot, global });
+    const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
     if (written.length === 0) {
       process.stdout.write("No skills found to adapt.\n");
     } else {

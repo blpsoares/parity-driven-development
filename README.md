@@ -197,6 +197,11 @@ Tell the agent to *fetch and follow* [`INSTALL.md`](INSTALL.md), or point it at 
 - **In Claude Code:** a SessionStart hook checks for a newer version and, when one exists, the
   assistant proactively tells you, offers to summarize what's new (from the CHANGELOG), and offers to
   run the update for you — once per version, never nagging.
+- **In Codex / Cursor / Copilot / Gemini** (no session hooks): installing PDD also drops an always-on
+  rule (`.cursor/rules/pdd.mdc`, `.github/instructions/pdd.instructions.md`, or a marked block in
+  `AGENTS.md` / `GEMINI.md`) that tells the agent to run `pdd check` when starting PDD work and offer
+  `pdd update` if a new version exists — the same proactive flow, driven by the rule + the CLI. Skip
+  it with `pdd init --no-rules`.
 - **In the terminal:** the `pdd` dashboard shows a 🔔 notice (checked once a day, cached, offline-safe).
 - On demand: `pdd check`. Opt out of all of it with `PDD_NO_UPDATE_CHECK=1`.
 

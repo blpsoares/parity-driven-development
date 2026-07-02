@@ -1,7 +1,7 @@
 // PDD 2.0 — tests for the cross-harness adapter (pure renderers).
 
 import { test, expect } from "bun:test";
-import { parseSkill, renderSkillFor, baseDirFor } from "./adapt";
+import { parseSkill, renderSkillFor, baseDirFor, rulesTargetFor, rulesFileContent, upsertBlock } from "./adapt";
 
 const SAMPLE = `---
 name: "audit-new"
@@ -70,4 +70,31 @@ test("adapted commands are agent-neutral (no 'Claude' leakage)", () => {
   for (const h of ["codex", "cursor", "copilot", "gemini"] as const) {
     expect(renderSkillFor(h, skill).content).not.toContain("Claude");
   }
+});
+
+test("rulesTargetFor picks the right file + mode per harness", () => {
+  expect(rulesTargetFor("cursor")).toEqual({ relPath: ".cursor/rules/pdd.mdc", mode: "overwrite" });
+  expect(rulesTargetFor("copilot").relPath).toBe(".github/instructions/pdd.instructions.md");
+  expect(rulesTargetFor("codex")).toEqual({ relPath: "AGENTS.md", mode: "block" });
+  expect(rulesTargetFor("gemini").mode).toBe("block");
+});
+
+test("rulesFileContent has the required frontmatter and update directive", () => {
+  expect(rulesFileContent("cursor")).toContain("alwaysApply: true");
+  expect(rulesFileContent("copilot")).toContain('applyTo: "**"');
+  expect(rulesFileContent("cursor")).toContain("pdd check");
+  expect(rulesFileContent("cursor")).toContain("pdd update");
+});
+
+test("upsertBlock inserts once and is idempotent on re-run", () => {
+  const original = "# My AGENTS.md\n\nExisting content.\n";
+  const once = upsertBlock(original, "BODY-A");
+  expect(once).toContain("# My AGENTS.md");
+  expect(once).toContain("PDD:BEGIN");
+  expect(once).toContain("BODY-A");
+  // Re-running replaces the block in place (no duplication, content updated).
+  const twice = upsertBlock(once, "BODY-B");
+  expect(twice.match(/PDD:BEGIN/g)?.length).toBe(1);
+  expect(twice).toContain("BODY-B");
+  expect(twice).not.toContain("BODY-A");
 });
