@@ -74,7 +74,12 @@ function inProgressLines(state: AuditState): string[] {
     /in[\s-]?progress|em andamento|doing/i.test(s.heading),
   );
   if (!section) return [];
-  return section.lines.map((l) => l.trim()).filter((l) => l.length > 0);
+  // Skip blank lines and skeleton placeholders like "<empty>" / "<vazio>" /
+  // "<none>" that the bootstrap board template leaves in an empty section.
+  const placeholder = /^<\s*(empty|vazio|none|nenhum)\s*>$/i;
+  return section.lines
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !placeholder.test(l));
 }
 
 // --- Main renderer ----------------------------------------------------------
