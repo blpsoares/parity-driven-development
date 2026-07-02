@@ -1,9 +1,10 @@
-// PDD 2.0 — interactive, navigable dashboard (TUI).
-// Zero external dependencies. The tree model, flattening, key reducer and frame
-// renderer are PURE (and unit-tested); only runTui() touches stdin / the screen.
+// PDD 2.0 — interactive, navigable dashboard (TUI) with tabs, keyboard AND mouse.
+// Zero external dependencies. The tree model, tab selection, flatten, key/mouse
+// parsing, hit-testing, reducers and frame rendering are PURE (unit-tested);
+// only runTui() touches stdin / the screen / mouse tracking.
 
 import { watch } from "node:fs";
-import { stripAnsi } from "./render";
+import { stripAnsi, progressBar } from "./render";
 import { readMergedAuditState, type AuditState, type Finding } from "./state";
 
 // --- Minimal ANSI -----------------------------------------------------------
@@ -47,9 +48,13 @@ export interface Row {
 }
 
 export interface UiState {
+  tab: number;
   cursor: number;
   expanded: Set<string>;
 }
+
+/** The tab bar, in order. */
+export const TABS = ["Overview", "Worktrees", "Findings", "Active", "Coverage"];
 
 /** Sections that start expanded. */
 export const DEFAULT_EXPANDED = [
@@ -60,6 +65,10 @@ export const DEFAULT_EXPANDED = [
   "findings:in-progress",
   "findings:done",
 ];
+
+// Fixed frame layout (1-based terminal rows), used by both renderer and hitTest.
+const TAB_ROW = 2; // the tab bar line
+const CONTENT_START = 5; // first content row (after title, tabs, hint, rule)
 
 function node(id: string, label: string, children: TreeNode[] = []): TreeNode {
   return { id, label, children };
@@ -89,7 +98,7 @@ function age(ms: number): string {
 export function buildTree(state: AuditState): TreeNode[] {
   const sections: TreeNode[] = [];
 
-  // Coverage (leaf info).
+  // Coverage.
   const pct = Math.round((state.coveragePct ?? 0) * 10) / 10;
   const verified = state.coverage.filter((r) => r.status === "verified").length;
   sections.push(
@@ -138,8 +147,7 @@ export function buildTree(state: AuditState): TreeNode[] {
     ),
   );
 
-  // Findings — grouped by lifecycle so you can see WHICH ids are open vs
-  // in-progress vs done (not just a count).
+  // Findings — grouped by lifecycle so you can see WHICH ids are in each state.
   const fs = state.findings ?? [];
   const findingNode = (f: Finding): TreeNode => {
     const paint = TIER_COLOR[f.confidence] ?? c.dim;
@@ -163,10 +171,10 @@ export function buildTree(state: AuditState): TreeNode[] {
       ],
     );
   };
-  const order: Array<{ key: string; label: string; paint: (s: string) => string }> = [
-    { key: "open", label: "open", paint: c.red },
-    { key: "in-progress", label: "in-progress", paint: c.yellow },
-    { key: "done", label: "done", paint: c.green },
+  const order = [
+    { key: "open", paint: c.red },
+    { key: "in-progress", paint: c.yellow },
+    { key: "done", paint: c.green },
   ];
   const groups: TreeNode[] = [];
   for (const g of order) {
@@ -176,7 +184,7 @@ export function buildTree(state: AuditState): TreeNode[] {
     groups.push(
       node(
         `findings:${g.key}`,
-        `${g.paint(g.label)} ${c.dim(`(${inGroup.length}) — ${ids}`)}`,
+        `${g.paint(g.key)} ${c.dim(`(${inGroup.length}) — ${ids}`)}`,
         inGroup.map(findingNode),
       ),
     );
@@ -209,9 +217,26 @@ export function buildTree(state: AuditState): TreeNode[] {
   return sections;
 }
 
-// --- Flatten / navigate / render (pure) -------------------------------------
+/** Pick the sections shown by a tab (Overview shows all). */
+export function sectionsForTab(tree: TreeNode[], tabIndex: number): TreeNode[] {
+  const only = (id: string) => tree.filter((n) => n.id === id);
+  switch (TABS[tabIndex]) {
+    case "Worktrees":
+      return only("sec:worktrees");
+    case "Findings":
+      return only("sec:findings");
+    case "Active":
+      return only("sec:active");
+    case "Coverage":
+      return only("sec:coverage");
+    default:
+      return tree;
+  }
+}
 
-/** Flatten the tree into visible rows given the set of expanded node ids. */
+// --- Flatten (pure) ---------------------------------------------------------
+
+/** Flatten a section list into visible rows given the expanded node ids. */
 export function flatten(nodes: TreeNode[], expanded: Set<string>): Row[] {
   const rows: Row[] = [];
   const walk = (list: TreeNode[], depth: number, parentIndex: number) => {
@@ -234,10 +259,13 @@ export function flatten(nodes: TreeNode[], expanded: Set<string>): Row[] {
   return rows;
 }
 
-/** Canonical key names produced by parseKey. */
-export type Key = "up" | "down" | "left" | "right" | "enter" | "esc" | "quit" | "";
+// --- Input parsing (pure) ---------------------------------------------------
 
-/** Map a raw stdin chunk to a canonical key name. */
+export type Key =
+  | "up" | "down" | "left" | "right"
+  | "enter" | "esc" | "tab" | "shifttab" | "quit" | "";
+
+/** Map a raw stdin chunk to a canonical key name (ignores mouse sequences). */
 export function parseKey(data: string): Key {
   switch (data) {
     case "\x1b[A":
@@ -255,23 +283,102 @@ export function parseKey(data: string): Key {
     case "\r":
     case "\n":
       return "enter";
+    case "\t":
+      return "tab";
+    case "\x1b[Z":
+      return "shifttab";
     case "\x1b":
       return "esc";
     case "q":
-    case "\x03": // Ctrl-C
+    case "\x03":
       return "quit";
     default:
       return "";
   }
 }
 
+export interface MouseEvent {
+  kind: "press" | "release" | "wheel-up" | "wheel-down";
+  x: number; // 1-based column
+  y: number; // 1-based row
+}
+
+/** Parse an SGR mouse sequence (\x1b[<b;x;yM|m). Returns null if not a mouse event. */
+export function parseMouse(data: string): MouseEvent | null {
+  const m = data.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
+  if (!m) return null;
+  const button = Number(m[1]);
+  const x = Number(m[2]);
+  const y = Number(m[3]);
+  if (button === 64) return { kind: "wheel-up", x, y };
+  if (button === 65) return { kind: "wheel-down", x, y };
+  return { kind: m[4] === "M" ? "press" : "release", x, y };
+}
+
+/** Column spans (1-based, inclusive) of each tab label in the rendered tab bar. */
+export function tabSpans(): { index: number; start: number; end: number }[] {
+  const spans: { index: number; start: number; end: number }[] = [];
+  let col = 1;
+  TABS.forEach((t, i) => {
+    const cell = ` ${t} `;
+    const start = col;
+    col += cell.length;
+    spans.push({ index: i, start, end: col - 1 });
+    if (i < TABS.length - 1) col += 1; // the "│" separator
+  });
+  return spans;
+}
+
 /**
- * Apply a key to the UI state. `rows` is the currently-visible flattening.
- * Pure: returns a new UiState (expanded is copied).
+ * Map a click at (x,y) to a tab, a content row, or nothing. `contentStart` is
+ * the 1-based terminal row of the first content line (varies when the Overview
+ * banner is shown), defaulting to the no-banner layout.
  */
+export function hitTest(
+  rows: Row[],
+  x: number,
+  y: number,
+  contentStart: number = CONTENT_START,
+): { kind: "tab"; index: number } | { kind: "row"; index: number } | null {
+  if (y === TAB_ROW) {
+    for (const s of tabSpans()) {
+      if (x >= s.start && x <= s.end) return { kind: "tab", index: s.index };
+    }
+    return null;
+  }
+  const rowIndex = y - contentStart;
+  if (rowIndex >= 0 && rowIndex < rows.length) return { kind: "row", index: rowIndex };
+  return null;
+}
+
+/** The number of content-shifting lines a banner occupies (banner + a rule). */
+export function bannerHeight(banner: string[]): number {
+  return banner.length > 0 ? banner.length + 1 : 0;
+}
+
+/** Colored at-a-glance summary shown at the top of the Overview tab. */
+export function summaryBanner(state: AuditState): string[] {
+  const pct = Math.round((state.coveragePct ?? 0) * 10) / 10;
+  const verified = state.coverage.filter((r) => r.status === "verified").length;
+  const total = state.coverage.length;
+
+  const fs = state.findings ?? [];
+  const lc = (k: string) => fs.filter((f) => findingLifecycle(f) === k).length;
+  const tier = (t: string) => fs.filter((f) => f.confidence === t).length;
+
+  return [
+    `${c.bold("Coverage")}  ${progressBar(pct)} ${c.bold(`${pct}%`)} ${c.dim(`(${verified}/${total})`)}`,
+    `${c.bold("Confidence")}  ${c.red("t0:" + tier("tier-0"))}  ${c.yellow("t1:" + tier("tier-1"))}  ${c.magenta("t2:" + tier("tier-2"))}  ${c.green("t3:" + tier("tier-3"))}`,
+    `${c.bold("Findings")}  ${c.red("open:" + lc("open"))}  ${c.yellow("in-progress:" + lc("in-progress"))}  ${c.green("done:" + lc("done"))}   ${c.cyan("worktrees:" + (state.worktrees?.length ?? 0))}   ${c.green("active:" + (state.activity?.length ?? 0))}`,
+  ];
+}
+
+// --- Reducers (pure) --------------------------------------------------------
+
+/** Apply a keyboard key to the UI state. `rows` is the current flattening. */
 export function reduce(ui: UiState, key: Key, rows: Row[]): UiState {
   const expanded = new Set(ui.expanded);
-  let cursor = ui.cursor;
+  let { cursor, tab } = ui;
   const row = rows[cursor];
 
   switch (key) {
@@ -287,66 +394,109 @@ export function reduce(ui: UiState, key: Key, rows: Row[]): UiState {
       break;
     case "left":
     case "esc":
-      if (row && row.expandable && row.expanded) {
-        expanded.delete(row.id);
-      } else if (row && row.parentIndex >= 0) {
-        cursor = row.parentIndex;
-      }
+      if (row && row.expandable && row.expanded) expanded.delete(row.id);
+      else if (row && row.parentIndex >= 0) cursor = row.parentIndex;
+      break;
+    case "tab":
+      tab = (tab + 1) % TABS.length;
+      cursor = 0;
+      break;
+    case "shifttab":
+      tab = (tab - 1 + TABS.length) % TABS.length;
+      cursor = 0;
       break;
     default:
       break;
   }
-  return { cursor, expanded };
+  return { tab, cursor, expanded };
 }
 
-/** Render a full frame (header + rows + footer) as a string. */
-export function renderFrame(rows: Row[], cursor: number): string {
+/** Toggle a node's expansion (used by mouse clicks on a row). */
+export function toggleAt(ui: UiState, rowIndex: number, rows: Row[]): UiState {
+  const expanded = new Set(ui.expanded);
+  const row = rows[rowIndex];
+  if (row && row.expandable) {
+    if (row.expanded) expanded.delete(row.id);
+    else expanded.add(row.id);
+  }
+  return { ...ui, cursor: rowIndex, expanded };
+}
+
+/** Jump to a specific tab (used by mouse clicks on the tab bar). */
+export function gotoTab(ui: UiState, index: number): UiState {
+  return { ...ui, tab: index, cursor: 0 };
+}
+
+// --- Frame renderer (pure) --------------------------------------------------
+
+function tabBar(active: number): string {
+  return TABS.map((t, i) => {
+    const cell = ` ${t} `;
+    return i === active ? c.reverse(c.bold(cell)) : c.dim(cell);
+  }).join(c.dim("│"));
+}
+
+/** Render a full frame (title, tab bar, hint, optional banner, rows) as a string. */
+export function renderFrame(
+  tab: number,
+  rows: Row[],
+  cursor: number,
+  live = true,
+  banner: string[] = [],
+): string {
   const out: string[] = [];
   out.push(c.bold(c.cyan("PDD Board — Parity-Driven Development")));
+  out.push(tabBar(tab)); // line index 1 → terminal row TAB_ROW
   out.push(
-    c.dim("↑/↓ navigate · →/enter expand · ←/esc collapse · q quit"),
+    c.dim("↑/↓ move · →/enter expand · ←/esc collapse · Tab switch · click too · q quit") +
+      (live ? "   " + c.green("● live") : ""),
   );
-  out.push(c.dim("─".repeat(56)));
-
+  out.push(c.dim("─".repeat(60)));
+  if (banner.length > 0) {
+    for (const b of banner) out.push(b);
+    out.push(c.dim("─".repeat(60)));
+  }
   if (rows.length === 0) out.push(c.dim("  (empty)"));
   rows.forEach((r, i) => {
     const indent = "  ".repeat(r.depth);
     const marker = r.expandable ? (r.expanded ? "▾" : "▸") : " ";
-    if (i === cursor) {
-      out.push(c.reverse(`${indent}${marker} ${r.plain}`));
-    } else {
-      out.push(`${indent}${marker} ${r.label}`);
-    }
+    if (i === cursor) out.push(c.reverse(`${indent}${marker} ${r.plain}`));
+    else out.push(`${indent}${marker} ${r.label}`);
   });
-  out.push(c.dim("─".repeat(56)));
+  out.push(c.dim("─".repeat(60)));
   return out.join("\n");
 }
 
 // --- Imperative shell -------------------------------------------------------
 
-const ALT_ON = "\x1b[?1049h\x1b[?25l"; // alt screen + hide cursor
-const ALT_OFF = "\x1b[?25h\x1b[?1049l"; // show cursor + leave alt screen
+// Alt screen + hide cursor + enable SGR mouse (1000 = clicks, 1006 = SGR coords).
+const ENTER = "\x1b[?1049h\x1b[?25l\x1b[?1000h\x1b[?1006h";
+const LEAVE = "\x1b[?1000l\x1b[?1006l\x1b[?25h\x1b[?1049l";
 const CLEAR = "\x1b[2J\x1b[H";
 
 /** Launch the interactive TUI against an `.audit` directory. */
 export function runTui(auditDir: string): void {
   const stdin = process.stdin;
-  // No TTY (piped/redirected): fall back to a single static frame.
   if (!stdin.isTTY) {
-    const tree = buildTree(readMergedAuditState(auditDir));
-    process.stdout.write(
-      renderFrame(flatten(tree, new Set(DEFAULT_EXPANDED)), -1) + "\n",
-    );
+    const state = readMergedAuditState(auditDir);
+    const rows = flatten(sectionsForTab(buildTree(state), 0), new Set(DEFAULT_EXPANDED));
+    process.stdout.write(renderFrame(0, rows, -1, false, summaryBanner(state)) + "\n");
     return;
   }
 
-  let ui: UiState = { cursor: 0, expanded: new Set(DEFAULT_EXPANDED) };
-  let tree = buildTree(readMergedAuditState(auditDir));
+  let ui: UiState = { tab: 0, cursor: 0, expanded: new Set(DEFAULT_EXPANDED) };
+  let state = readMergedAuditState(auditDir);
+  let tree = buildTree(state);
+
+  const visibleRows = () => flatten(sectionsForTab(tree, ui.tab), ui.expanded);
+  // The colored summary banner is shown only on the Overview tab.
+  const currentBanner = () => (ui.tab === 0 ? summaryBanner(state) : []);
+  const currentContentStart = () => CONTENT_START + bannerHeight(currentBanner());
 
   const draw = () => {
-    const rows = flatten(tree, ui.expanded);
-    if (ui.cursor > rows.length - 1) ui = { ...ui, cursor: Math.max(rows.length - 1, 0) };
-    process.stdout.write(CLEAR + renderFrame(rows, ui.cursor));
+    const rows = visibleRows();
+    if (ui.cursor > rows.length - 1) ui.cursor = Math.max(rows.length - 1, 0);
+    process.stdout.write(CLEAR + renderFrame(ui.tab, rows, ui.cursor, true, currentBanner()));
   };
 
   const cleanup = () => {
@@ -354,37 +504,49 @@ export function runTui(auditDir: string): void {
       stdin.setRawMode(false);
     } catch {}
     stdin.pause();
-    process.stdout.write(ALT_OFF);
+    process.stdout.write(LEAVE);
     process.exit(0);
   };
 
-  process.stdout.write(ALT_ON);
+  process.stdout.write(ENTER);
   draw();
 
   stdin.setRawMode(true);
   stdin.resume();
   stdin.setEncoding("utf8");
   stdin.on("data", (d: string) => {
+    const mouse = parseMouse(d);
+    if (mouse) {
+      const rows = visibleRows();
+      if (mouse.kind === "wheel-up") ui = reduce(ui, "up", rows);
+      else if (mouse.kind === "wheel-down") ui = reduce(ui, "down", rows);
+      else if (mouse.kind === "press") {
+        const hit = hitTest(rows, mouse.x, mouse.y, currentContentStart());
+        if (hit?.kind === "tab") ui = gotoTab(ui, hit.index);
+        else if (hit?.kind === "row") ui = toggleAt(ui, hit.index, rows);
+      }
+      draw();
+      return;
+    }
     const key = parseKey(d);
     if (key === "quit") return cleanup();
     if (key === "") return;
-    const rows = flatten(tree, ui.expanded);
-    ui = reduce(ui, key, rows);
+    ui = reduce(ui, key, visibleRows());
     draw();
   });
 
-  // Live updates: re-read on any change under .audit (debounced), keeping ui.
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     watch(auditDir, { recursive: true }, () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        tree = buildTree(readMergedAuditState(auditDir));
+        state = readMergedAuditState(auditDir);
+        tree = buildTree(state);
         draw();
       }, 120);
     });
   } catch {
-    // Recursive watch unsupported on this platform — nav still works, no live refresh.
+    // Recursive watch unsupported — nav still works, just no live refresh.
   }
 
   process.on("SIGINT", cleanup);
