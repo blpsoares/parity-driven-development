@@ -285,7 +285,8 @@ async function main(argv: string[]): Promise<void> {
     }
   } else if (command === "tui") {
     refreshCacheIfStale(Date.now());
-    runTui(auditDir, cachedNotice(PLUGIN_ROOT) ?? undefined);
+    const lang = args.includes("--pt") || process.env.PDD_LANG === "pt" ? "pt" : "en";
+    runTui(auditDir, cachedNotice(PLUGIN_ROOT) ?? undefined, lang);
   } else if (watchMode) {
     watchBoard(auditDir);
   } else {

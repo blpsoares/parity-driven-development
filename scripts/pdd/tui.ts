@@ -6,6 +6,7 @@
 import { watch } from "node:fs";
 import { stripAnsi, progressBar } from "./render";
 import { readMergedAuditState, type AuditState, type Finding } from "./state";
+import { t, type Lang } from "./i18n";
 
 // --- Minimal ANSI -----------------------------------------------------------
 
@@ -54,6 +55,8 @@ export interface UiState {
 }
 
 /** The tab bar, in order. */
+// Canonical (English) tab keys — used for logic (sectionsForTab). Display names
+// are translated via TAB_I18N so the tab bar can switch language.
 export const TABS = [
   "Overview",
   "Flow",
@@ -63,6 +66,21 @@ export const TABS = [
   "Coverage",
   "Legend",
 ];
+
+const TAB_I18N = [
+  "tab_overview",
+  "tab_flow",
+  "tab_worktrees",
+  "tab_findings",
+  "tab_active",
+  "tab_coverage",
+  "tab_legend",
+];
+
+/** Translated display label for a tab index. */
+function tabLabel(i: number, lang: Lang): string {
+  return t(lang, TAB_I18N[i]);
+}
 
 /** Sections that start expanded. */
 export const DEFAULT_EXPANDED = [
@@ -122,13 +140,30 @@ export function currentStageIndex(stages: Stage[]): number {
   return i === -1 ? stages.length - 1 : i;
 }
 
+/** Map a pipeline stage key to its i18n key. */
+const STAGE_I18N: Record<string, string> = {
+  new: "st_new",
+  investigated: "st_investigated",
+  resolved: "st_resolved",
+  "qa-local": "st_qa_local",
+  pr: "st_pr",
+  "qa-env": "st_qa_env",
+  verified: "st_verified",
+};
+
+/** Translate a stage's display label. */
+function stageLabel(stage: Stage, lang: Lang): string {
+  return t(lang, STAGE_I18N[stage.key] ?? stage.key);
+}
+
 /** Render the pipeline as a compact colored line: done ●, current ◉, future ○. */
-export function renderPipeline(stages: Stage[]): string {
+export function renderPipeline(stages: Stage[], lang: Lang = "en"): string {
   const cur = currentStageIndex(stages);
   return stages
     .map((s, i) => {
+      const label = stageLabel(s, lang);
       const dot = s.done ? c.green("●") : i === cur ? c.yellow("◉") : c.dim("○");
-      const name = s.done ? c.green(s.label) : i === cur ? c.yellow(s.label) : c.dim(s.label);
+      const name = s.done ? c.green(label) : i === cur ? c.yellow(label) : c.dim(label);
       return `${dot} ${name}`;
     })
     .join(c.dim(" ─ "));
@@ -157,8 +192,10 @@ function age(ms: number): string {
 }
 
 /** Build the section tree from an audit state. Labels carry ANSI; ids are stable. */
-export function buildTree(state: AuditState): TreeNode[] {
+export function buildTree(state: AuditState, lang: Lang = "en"): TreeNode[] {
   const sections: TreeNode[] = [];
+  const tr = (k: string) => t(lang, k);
+  const lifeKey = (k: string) => (k === "in-progress" ? "in_progress" : k);
 
   // Coverage.
   const pct = Math.round((state.coveragePct ?? 0) * 10) / 10;
@@ -166,7 +203,7 @@ export function buildTree(state: AuditState): TreeNode[] {
   sections.push(
     node(
       "sec:coverage",
-      `${c.bold("Coverage")} ${pct}% ${c.dim(`(${verified}/${state.coverage.length} verified)`)}`,
+      `${c.bold(tr("coverage"))} ${pct}% ${c.dim(`(${verified}/${state.coverage.length} ${tr("verified")})`)}`,
       state.coverage.map((r, i) =>
         node(
           `cov:${i}`,
@@ -181,14 +218,14 @@ export function buildTree(state: AuditState): TreeNode[] {
   sections.push(
     node(
       "sec:worktrees",
-      `${c.bold("Worktrees")} ${c.dim(`(${wts.length} active)`)}`,
+      `${c.bold(tr("worktrees"))} ${c.dim(`(${wts.length} ${tr("n_active")})`)}`,
       wts.map((wt) => {
         const detail: TreeNode[] = [
           node(`wt:${wt.path}:branch`, `${c.dim("branch:")} ${wt.branch}`),
           node(`wt:${wt.path}:path`, `${c.dim("path:")} ${wt.path}`),
           node(
             `wt:${wt.path}:audit`,
-            `${c.dim("audit:")} ${wt.auditDir ? wt.auditDir : "(no .audit in worktree)"}`,
+            `${c.dim("audit:")} ${wt.auditDir ? wt.auditDir : tr("no_audit_wt")}`,
           ),
         ];
         for (const f of wt.findings) {
@@ -196,7 +233,7 @@ export function buildTree(state: AuditState): TreeNode[] {
           detail.push(
             node(
               `wt:${wt.path}:f:${f.id}`,
-              `${c.dim("finding")} ${c.bold(f.id)} ${paint(String(f.confidence))} ${c.dim("· " + findingLifecycle(f))}`,
+              `${c.dim("finding")} ${c.bold(f.id)} ${paint(String(f.confidence))} ${c.dim("· " + tr(lifeKey(findingLifecycle(f))))}`,
             ),
           );
         }
@@ -246,13 +283,13 @@ export function buildTree(state: AuditState): TreeNode[] {
     groups.push(
       node(
         `findings:${g.key}`,
-        `${g.paint(g.key)} ${c.dim(`(${inGroup.length}) — ${ids}`)}`,
+        `${g.paint(tr(lifeKey(g.key)))} ${c.dim(`(${inGroup.length}) — ${ids}`)}`,
         inGroup.map(findingNode),
       ),
     );
   }
   sections.push(
-    node("sec:findings", `${c.bold("Findings")} ${c.dim(`(${fs.length})`)}`, groups),
+    node("sec:findings", `${c.bold(tr("findings"))} ${c.dim(`(${fs.length})`)}`, groups),
   );
 
   // Active now.
@@ -260,7 +297,7 @@ export function buildTree(state: AuditState): TreeNode[] {
   sections.push(
     node(
       "sec:active",
-      `${c.bold("Active now")} ${c.dim(`(${acts.length})`)}`,
+      `${c.bold(tr("active_now"))} ${c.dim(`(${acts.length})`)}`,
       acts.map((a, i) => {
         const where =
           a.worktree && a.worktree !== "none" && a.worktree !== "root"
@@ -276,35 +313,35 @@ export function buildTree(state: AuditState): TreeNode[] {
     ),
   );
 
-  // Flow — the FULL pipeline per finding (new → investigated → resolved → PR → QA → verified).
+  // Flow — the FULL pipeline per finding.
   const covStatusOf = (fid: string) =>
     state.coverage.find((r) => r.finding === fid)?.status ?? "not-started";
   sections.push(
     node(
       "sec:flow",
-      `${c.bold("Flow")} ${c.dim("(pipeline per finding)")}`,
+      `${c.bold(tr("tab_flow"))} ${c.dim(`(${tr("flow_sub")})`)}`,
       fs.map((f) => {
         const stages = pipelineStages(f, covStatusOf(f.id));
         const cur = stages[currentStageIndex(stages)];
         return node(
           `flow:${f.id}`,
-          `${c.bold(f.id)} ${f.title}  ${pipelineDots(stages)} ${c.dim("→ " + cur.label)}`,
+          `${c.bold(f.id)} ${f.title}  ${pipelineDots(stages)} ${c.dim("→ " + stageLabel(cur, lang))}`,
           [
-            node(`flow:${f.id}:line`, renderPipeline(stages)),
-            node(`flow:${f.id}:pr`, `${c.dim("PR:")} ${f.prUrl || c.dim("— not opened (run /audit-pr)")}`),
+            node(`flow:${f.id}:line`, renderPipeline(stages, lang)),
+            node(`flow:${f.id}:pr`, `${c.dim(tr("pr_label"))} ${f.prUrl || c.dim(tr("pr_not_opened"))}`),
             node(
               `flow:${f.id}:qa`,
-              `${c.dim("QA:")} ${
+              `${c.dim(tr("qa_label"))} ${
                 Object.keys(f.qaEnvs ?? {}).length
                   ? Object.entries(f.qaEnvs)
                       .map(([e, s]) => `${e}=${s === "approved" ? c.green(s) : s === "rejected" ? c.red(s) : c.yellow(s)}`)
                       .join(" · ")
-                  : c.dim("— not in QA yet")
+                  : c.dim(tr("qa_not_yet"))
               }`,
             ),
             node(
               `flow:${f.id}:cov`,
-              `${c.dim("coverage:")} ${covStatusOf(f.id)}${covStatusOf(f.id) === "verified" ? c.green(" ✓ guaranteed") : c.yellow(" (not guaranteed yet)")}`,
+              `${c.dim(tr("coverage_label"))} ${covStatusOf(f.id)}${covStatusOf(f.id) === "verified" ? c.green(" " + tr("guaranteed")) : c.yellow(" " + tr("not_guaranteed"))}`,
             ),
           ],
         );
@@ -312,31 +349,38 @@ export function buildTree(state: AuditState): TreeNode[] {
     ),
   );
 
-  // Legend — plain-language explanations of coverage, tiers and the pipeline.
+  // Legend — plain-language explanations of coverage, tiers, the pipeline and the commands.
   sections.push(
-    node("sec:legend", `${c.bold("Legend")} ${c.dim("(what these mean)")}`, [
-      node(
-        "legend:coverage",
-        `${c.bold("Coverage %")} = share of behaviors/areas proven identical to the reference`,
-        [
-          node("legend:cov:1", c.dim("Counts only VERIFIED rows (QA-approved AND merged).")),
-          node("legend:cov:2", c.dim("It is NOT code/line coverage — it is behavioral parity.")),
-          node("legend:cov:3", c.dim("Locally-resolved rows show as 'pending QA' and do NOT count.")),
-        ],
-      ),
-      node("legend:tiers", `${c.bold("Tiers")} = strength of the evidence behind a finding`, [
-        node("legend:t0", `${c.red("tier-0")} ${c.dim("text description only (weakest)")}`),
-        node("legend:t1", `${c.yellow("tier-1")} ${c.dim("paired screenshots (reference vs new)")}`),
-        node("legend:t2", `${c.magenta("tier-2")} ${c.dim("automated data-to-data diff (/audit-compare)")}`),
-        node("legend:t3", `${c.green("tier-3")} ${c.dim("tier-2 + a passing characterization test (strongest)")}`),
+    node("sec:legend", `${c.bold(tr("tab_legend"))} ${c.dim(`(${tr("legend_sub")})`)}`, [
+      node("legend:coverage", `${c.bold(tr("lg_coverage_title"))}`, [
+        node("legend:cov:1", c.dim(tr("lg_cov_1"))),
+        node("legend:cov:2", c.dim(tr("lg_cov_2"))),
+        node("legend:cov:3", c.dim(tr("lg_cov_3"))),
       ]),
-      node("legend:flow", `${c.bold("Pipeline")} = the life of a finding`, [
-        node("legend:f1", c.dim("new → captured · investigated → root cause understood")),
-        node("legend:f2", c.dim("resolved → fix done locally (NOT guaranteed yet)")),
-        node("legend:f3", c.dim("QA local → validated on localhost BEFORE the PR (blocks /audit-pr)")),
-        node("legend:f4", c.dim("PR → dossier opened · deploy to dev/staging/prod")),
-        node("legend:f5", c.dim("QA env → validated on the target environment AFTER deploy")),
-        node("legend:f6", `${c.dim("verified → target-env QA approved + merged ")}${c.green("(guaranteed)")}`),
+      node("legend:tiers", `${c.bold(tr("lg_tiers_title"))}`, [
+        node("legend:t0", `${c.red("tier-0")} ${c.dim(tr("lg_t0"))}`),
+        node("legend:t1", `${c.yellow("tier-1")} ${c.dim(tr("lg_t1"))}`),
+        node("legend:t2", `${c.magenta("tier-2")} ${c.dim(tr("lg_t2"))}`),
+        node("legend:t3", `${c.green("tier-3")} ${c.dim(tr("lg_t3"))}`),
+      ]),
+      node("legend:flow", `${c.bold(tr("lg_flow_title"))}`, [
+        node("legend:f1", c.dim(tr("lg_f1"))),
+        node("legend:f2", c.dim(tr("lg_f2"))),
+        node("legend:f3", c.dim(tr("lg_f3"))),
+        node("legend:f4", c.dim(tr("lg_f4"))),
+        node("legend:f5", c.dim(tr("lg_f5"))),
+        node("legend:f6", c.dim(tr("lg_f6"))),
+      ]),
+      node("legend:commands", `${c.bold(tr("lg_cmd_title"))}`, [
+        node("legend:c1", c.dim(tr("lg_cmd_1"))),
+        node("legend:c2", c.dim(tr("lg_cmd_2"))),
+        node("legend:c3", c.dim(tr("lg_cmd_3"))),
+        node("legend:c4", c.dim(tr("lg_cmd_4"))),
+        node("legend:c5", c.dim(tr("lg_cmd_5"))),
+        node("legend:c6", c.dim(tr("lg_cmd_6"))),
+        node("legend:c7", c.dim(tr("lg_cmd_7"))),
+        node("legend:c8", c.dim(tr("lg_cmd_8"))),
+        node("legend:c9", c.dim(tr("lg_cmd_9"))),
       ]),
     ]),
   );
@@ -448,11 +492,11 @@ export function parseMouse(data: string): MouseEvent | null {
 }
 
 /** Column spans (1-based, inclusive) of each tab label in the rendered tab bar. */
-export function tabSpans(): { index: number; start: number; end: number }[] {
+export function tabSpans(lang: Lang = "en"): { index: number; start: number; end: number }[] {
   const spans: { index: number; start: number; end: number }[] = [];
   let col = 1;
-  TABS.forEach((t, i) => {
-    const cell = ` ${t} `;
+  TABS.forEach((_key, i) => {
+    const cell = ` ${tabLabel(i, lang)} `;
     const start = col;
     col += cell.length;
     spans.push({ index: i, start, end: col - 1 });
@@ -471,9 +515,10 @@ export function hitTest(
   x: number,
   y: number,
   contentStart: number = CONTENT_START,
+  lang: Lang = "en",
 ): { kind: "tab"; index: number } | { kind: "row"; index: number } | null {
   if (y === TAB_ROW) {
-    for (const s of tabSpans()) {
+    for (const s of tabSpans(lang)) {
       if (x >= s.start && x <= s.end) return { kind: "tab", index: s.index };
     }
     return null;
@@ -489,7 +534,8 @@ export function bannerHeight(banner: string[]): number {
 }
 
 /** Colored at-a-glance summary shown at the top of the Overview tab. */
-export function summaryBanner(state: AuditState): string[] {
+export function summaryBanner(state: AuditState, lang: Lang = "en"): string[] {
+  const tr = (k: string) => t(lang, k);
   const pct = Math.round((state.coveragePct ?? 0) * 10) / 10;
   const verified = state.coverage.filter((r) => r.status === "verified").length;
   const pending = state.coverage.filter((r) => r.status === "resolved").length;
@@ -497,13 +543,13 @@ export function summaryBanner(state: AuditState): string[] {
 
   const fs = state.findings ?? [];
   const lc = (k: string) => fs.filter((f) => findingLifecycle(f) === k).length;
-  const tier = (t: string) => fs.filter((f) => f.confidence === t).length;
+  const tierCount = (tv: string) => fs.filter((f) => f.confidence === tv).length;
 
-  const pendingTag = pending > 0 ? c.yellow(` +${pending} pending QA`) : "";
+  const pendingTag = pending > 0 ? c.yellow(` +${pending} ${tr("pending_qa")}`) : "";
   return [
-    `${c.bold("Coverage")}  ${progressBar(pct)} ${c.bold(`${pct}%`)} ${c.dim(`(${verified}/${total} verified)`)}${pendingTag}`,
-    `${c.bold("Confidence")}  ${c.red("t0:" + tier("tier-0"))}  ${c.yellow("t1:" + tier("tier-1"))}  ${c.magenta("t2:" + tier("tier-2"))}  ${c.green("t3:" + tier("tier-3"))}`,
-    `${c.bold("Findings")}  ${c.red("open:" + lc("open"))}  ${c.yellow("in-progress:" + lc("in-progress"))}  ${c.green("done:" + lc("done"))}   ${c.cyan("worktrees:" + (state.worktrees?.length ?? 0))}   ${c.green("active:" + (state.activity?.length ?? 0))}`,
+    `${c.bold(tr("coverage"))}  ${progressBar(pct)} ${c.bold(`${pct}%`)} ${c.dim(`(${verified}/${total} ${tr("verified")})`)}${pendingTag}`,
+    `${c.bold(tr("confidence"))}  ${c.red("t0:" + tierCount("tier-0"))}  ${c.yellow("t1:" + tierCount("tier-1"))}  ${c.magenta("t2:" + tierCount("tier-2"))}  ${c.green("t3:" + tierCount("tier-3"))}`,
+    `${c.bold(tr("findings"))}  ${c.red(tr("open") + ":" + lc("open"))}  ${c.yellow(tr("in_progress") + ":" + lc("in-progress"))}  ${c.green(tr("resolved") + ":" + lc("resolved"))}   ${c.cyan(tr("worktrees_lc") + ":" + (state.worktrees?.length ?? 0))}   ${c.green(tr("active_lc") + ":" + (state.activity?.length ?? 0))}`,
   ];
 }
 
@@ -563,9 +609,9 @@ export function gotoTab(ui: UiState, index: number): UiState {
 
 // --- Frame renderer (pure) --------------------------------------------------
 
-function tabBar(active: number): string {
-  return TABS.map((t, i) => {
-    const cell = ` ${t} `;
+function tabBar(active: number, lang: Lang): string {
+  return TABS.map((_key, i) => {
+    const cell = ` ${tabLabel(i, lang)} `;
     return i === active ? c.reverse(c.bold(cell)) : c.dim(cell);
   }).join(c.dim("│"));
 }
@@ -579,23 +625,23 @@ export function renderFrame(
   banner: string[] = [],
   mouseOn = true,
   note = "",
+  lang: Lang = "en",
 ): string {
   const out: string[] = [];
   out.push(c.bold(c.cyan("PDD Board — Parity-Driven Development")));
-  out.push(tabBar(tab)); // line index 1 → terminal row TAB_ROW
-  const mouseHint = mouseOn
-    ? "click on · m to select/copy"
-    : c.green("select/copy on · m for click");
+  out.push(tabBar(tab, lang)); // line index 1 → terminal row TAB_ROW
+  const mouseHint = mouseOn ? t(lang, "mouse_click") : c.green(t(lang, "mouse_select"));
   out.push(
-    c.dim(`↑/↓ move · →/enter expand · Tab switch · ${mouseHint} · q quit`) +
-      (live ? "   " + c.green("● live") : ""),
+    c.dim(
+      `↑/↓ ${t(lang, "hint_move")} · →/enter ${t(lang, "hint_expand")} · ${t(lang, "hint_switch")} · ${mouseHint} · ${t(lang, "hint_lang")} · ${t(lang, "hint_quit")}`,
+    ) + (live ? "   " + c.green("● " + t(lang, "live")) : ""),
   );
   out.push(c.dim("─".repeat(60)));
   if (banner.length > 0) {
     for (const b of banner) out.push(b);
     out.push(c.dim("─".repeat(60)));
   }
-  if (rows.length === 0) out.push(c.dim("  (empty)"));
+  if (rows.length === 0) out.push(c.dim(t(lang, "empty")));
   rows.forEach((r, i) => {
     const indent = "  ".repeat(r.depth);
     const marker = r.expandable ? (r.expanded ? "▾" : "▸") : " ";
@@ -618,30 +664,33 @@ const MOUSE_OFF = "\x1b[?1000l\x1b[?1006l";
 const CLEAR = "\x1b[2J\x1b[H";
 
 /** Launch the interactive TUI against an `.audit` directory. */
-export function runTui(auditDir: string, note = ""): void {
+export function runTui(auditDir: string, note = "", lang: Lang = "en"): void {
   const stdin = process.stdin;
   if (!stdin.isTTY) {
     const state = readMergedAuditState(auditDir);
-    const rows = flatten(sectionsForTab(buildTree(state), 0), new Set(DEFAULT_EXPANDED));
-    process.stdout.write(renderFrame(0, rows, -1, false, summaryBanner(state), true, note) + "\n");
+    const rows = flatten(sectionsForTab(buildTree(state, lang), 0), new Set(DEFAULT_EXPANDED));
+    process.stdout.write(
+      renderFrame(0, rows, -1, false, summaryBanner(state, lang), true, note, lang) + "\n",
+    );
     return;
   }
 
   let ui: UiState = { tab: 0, cursor: 0, expanded: new Set(DEFAULT_EXPANDED) };
   let state = readMergedAuditState(auditDir);
-  let tree = buildTree(state);
+  let curLang: Lang = lang;
+  let tree = buildTree(state, curLang);
   let mouseOn = true; // clicks captured; press `m` to switch to select/copy mode
 
   const visibleRows = () => flatten(sectionsForTab(tree, ui.tab), ui.expanded);
   // The colored summary banner is shown only on the Overview tab.
-  const currentBanner = () => (ui.tab === 0 ? summaryBanner(state) : []);
+  const currentBanner = () => (ui.tab === 0 ? summaryBanner(state, curLang) : []);
   const currentContentStart = () => CONTENT_START + bannerHeight(currentBanner());
 
   const draw = () => {
     const rows = visibleRows();
     if (ui.cursor > rows.length - 1) ui.cursor = Math.max(rows.length - 1, 0);
     process.stdout.write(
-      CLEAR + renderFrame(ui.tab, rows, ui.cursor, true, currentBanner(), mouseOn, note),
+      CLEAR + renderFrame(ui.tab, rows, ui.cursor, true, currentBanner(), mouseOn, note, curLang),
     );
   };
 
@@ -668,13 +717,20 @@ export function runTui(auditDir: string, note = ""): void {
       draw();
       return;
     }
+    // `L` toggles the interface language (English ↔ Brazilian Portuguese).
+    if (d === "L") {
+      curLang = curLang === "en" ? "pt" : "en";
+      tree = buildTree(state, curLang);
+      draw();
+      return;
+    }
     const mouse = mouseOn ? parseMouse(d) : null;
     if (mouse) {
       const rows = visibleRows();
       if (mouse.kind === "wheel-up") ui = reduce(ui, "up", rows);
       else if (mouse.kind === "wheel-down") ui = reduce(ui, "down", rows);
       else if (mouse.kind === "press") {
-        const hit = hitTest(rows, mouse.x, mouse.y, currentContentStart());
+        const hit = hitTest(rows, mouse.x, mouse.y, currentContentStart(), curLang);
         if (hit?.kind === "tab") ui = gotoTab(ui, hit.index);
         else if (hit?.kind === "row") ui = toggleAt(ui, hit.index, rows);
       }
@@ -694,7 +750,7 @@ export function runTui(auditDir: string, note = ""): void {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         state = readMergedAuditState(auditDir);
-        tree = buildTree(state);
+        tree = buildTree(state, curLang);
         draw();
       }, 120);
     });
