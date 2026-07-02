@@ -75,8 +75,14 @@ anything.
    > Evidence is `{{confidence}}`, below the project minimum `{{CONFIDENCE_MIN}}`. Raise it before
    > opening the PR: run `/audit-compare {{ID}}` for a data-to-data parity diff (tier-2), and/or add a
    > passing characterization test (tier-3), and/or attach paired reference/new screenshots (tier-1).
+6. **local QA approved** — the finding's `README.md` frontmatter has `qa-local: approved`. QA runs
+   **locally first, BEFORE the PR** (QA is validated on localhost before the change is ever exposed).
+   If it is missing or not `approved`, stop:
+   > Local QA hasn't approved this finding yet. Run `/audit-qa {{ID}} local` and get all local scenarios
+   > approved before opening the PR. (Environment QA — dev/staging/prod — happens AFTER the PR, on the
+   > deployed environment.)
 
-Only when ALL five pass do you proceed.
+Only when ALL six pass do you proceed.
 
 ## Activity tracking (live presence)
 

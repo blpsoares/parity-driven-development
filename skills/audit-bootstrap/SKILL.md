@@ -123,15 +123,26 @@ Record as `PROJECT_AREAS` — one item per line.
 - Ask for AT LEAST 2-3 reference cases. For each: identifier in the new system, equivalent identifier in the reference system, why it serves as an answer key (e.g. "it has scenario X and Y"), project areas it covers.
 - If the project has no concrete cases yet, record `<to be defined at the first /audit-new>` and warn that each finding will have to elect its own.
 
-**Section 11 — Preview / testable branch**
+**Section 11 — QA environments & preview**
 
-QA validates on the branch/PR BEFORE the merge (QA is a merge gate). To point QA cards at a testable environment, capture how a branch can be exercised.
+QA is multi-phase: **local** (on localhost, BEFORE the PR — it blocks `/audit-pr`) and per
+**deployment environment** (dev/staging/prod, AFTER the PR/deploy). Capture the chain of
+environments this project actually uses.
 
-- Ask: **"Is there a per-branch or per-PR deploy for this project?"** (yes/no).
-- If **yes**: ask for the URL pattern (e.g. `https://pr-{N}.preview.app`, `https://{branch}.staging.app`). Record `PREVIEW_MODE = per-branch-url` and `PREVIEW_URL_PATTERN = <pattern>`. Note that `{N}` is the PR number and `{branch}` is the branch name — whichever the pattern uses.
-- If **no**: QA tests locally by checking out the branch. Record `PREVIEW_MODE = local` and `PREVIEW_URL_PATTERN = none`. Note that `/audit-qa` will emit local checkout instructions instead of a preview URL.
+- Ask: **"Which environments does a change flow through, in order?"** Start with `local` and add the
+  deploy environments the project has (e.g. `local, staging, prod` or `local, dev, staging, prod`).
+  Record the ordered list as `QA_ENVIRONMENTS`.
+- For **each deployment environment** (not `local`), ask for how QA reaches it: a URL, and any
+  VPN/login/manual step. Record next to that environment. Reuse Section 7 answers if already given.
+- Ask: **"Which environment's QA is the guarantee — the one that, once approved + merged, marks an
+  area as truly verified?"** Default to the **last** environment in the chain (e.g. `prod`). Record as
+  `QA_TARGET_ENV`. (Coverage `verified` requires `qa-<QA_TARGET_ENV>` approved AND the PR merged.)
+- Preview for the pre-merge PR: ask **"Is there a per-branch or per-PR deploy?"** (yes/no).
+  - If **yes**: record `PREVIEW_MODE = per-branch-url` and `PREVIEW_URL_PATTERN = <pattern>` (e.g.
+    `https://pr-{N}.preview.app`; `{N}` = PR number, `{branch}` = branch name).
+  - If **no**: record `PREVIEW_MODE = local` and `PREVIEW_URL_PATTERN = none` — QA checks out the branch.
 
-Record `PREVIEW_MODE` (`per-branch-url` | `local`) and `PREVIEW_URL_PATTERN`.
+Record `QA_ENVIRONMENTS` (ordered), `QA_TARGET_ENV`, `PREVIEW_MODE` (`per-branch-url` | `local`) and `PREVIEW_URL_PATTERN`.
 
 **Section 12 — Confidence thresholds**
 

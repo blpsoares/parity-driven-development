@@ -1,7 +1,7 @@
 ---
 name: "audit-qa"
-description: "Bridge between an open PR on a fix branch (git) and QA validation (Notion or a file checklist). Runs AFTER the finding's PR is OPEN — QA is the merge gate. First run: creates the finding page + N plain-language test cards that point at the testable branch/preview. Later runs: reads QA status, handles approvals and rejections. NEVER runs before the PR is open."
-argument-hint: "finding ID (e.g. 007 or 007-checkout-wrong-total)"
+description: "Environment-aware QA bridge between the fix (git) and validation (Notion or a file checklist). QA runs in phases: LOCAL (on localhost, BEFORE the PR — blocks /audit-pr) and per deployment ENVIRONMENT (dev/staging/prod, AFTER the PR/deploy). Tracks per-environment status; promotes coverage to `verified` only when the target-environment QA is approved AND the PR is merged."
+argument-hint: "finding ID + environment (e.g. 007 local | 007 staging | 007 prod)"
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -21,12 +21,29 @@ file checklist when Notion is off).
 **Interact with the dev in their working language — never force English on the user; the
 example phrases below are templates.**
 
-**Golden rule (INVERTED for PDD 2.0 pre-merge flow):** this skill runs **after the PR is
-OPEN**, NOT after it is merged. QA validates on the branch/preview *before* merge — QA is
-the **merge gate**. Before the PR exists, there is no testable environment to point QA at.
+**QA is multi-phase and environment-aware:**
+- **Local QA** (`environment = local`): runs on **localhost, BEFORE the PR**. Its approval is a
+  blocking precondition of `/audit-pr` — nothing is exposed as a PR until it passes locally.
+- **Environment QA** (`environment = dev | staging | prod | …`): runs **AFTER the PR/deploy**, on the
+  deployed target environment. The available environments and their URLs come from `BOOTSTRAP.md`.
+
+Per-environment status is stored in the finding's `README.md` frontmatter as `qa-<env>` keys
+(e.g. `qa-local: approved`, `qa-staging: approved`). Coverage becomes `verified` **only** when the
+project's **target environment** QA is approved **and** the PR is merged (see §6).
 
 **State-sensitive behavior:** a single skill that acts on what it finds — creates cards on
-the first run, shows status and handles feedback on later runs.
+the first run for that environment, shows status and handles feedback on later runs.
+
+### 0. Resolve the environment (do this first)
+
+- Parse the environment token from `$ARGUMENTS` (after the finding id). If absent, ask which
+  environment this QA round is for, listing `QA_ENVIRONMENTS` from `BOOTSTRAP.md` (default the first,
+  `local`).
+- **If `environment = local`:** the PR need NOT exist yet (this is the pre-PR gate). Point QA at the
+  local run (localhost URL / how-to-run from BOOTSTRAP). Skip the "PR must be open" check below.
+- **If `environment` is a deployment env:** the PR MUST be open (§2), and QA points at that
+  environment's URL (from BOOTSTRAP Section 7 / preview pattern).
+- Throughout this skill, write approvals/rejections to the `qa-<environment>` frontmatter key.
 
 ## Outline
 
@@ -199,21 +216,26 @@ Status vocabulary (Notion `Test Status` / file markers): `Awaiting test` | `Appr
 - **All `Awaiting test`**: QA hasn't started.
   > "QA hasn't tested any of the {{N}} scenarios yet. Nothing to do right now."
 
-- **All `Approved`** → QA is the merge gate, all green:
-  > "🟢 QA approved N scenarios on the branch — you may merge PR #X."
-  > (Merge stays human — I will not merge.)
-  Offer to set `qa-status: approved` in the finding's `README.md` frontmatter (only after the
-  dev says yes). Do NOT merge and do NOT push anything.
+- **All `Approved`** → record it for THIS environment:
+  - Set `qa-{{environment}}: approved` in the finding's `README.md` frontmatter (offer first; only
+    after the dev says yes).
+  - **If `environment = local`:** report:
+    > "🟢 Local QA approved the N scenarios. `/audit-pr {{NNN}}` is now unblocked."
+  - **If `environment` is a deployment env:** report:
+    > "🟢 QA approved the N scenarios on {{environment}} (PR #X)."
+    > (Merge stays human — I will not merge.)
+  Do NOT merge and do NOT push anything.
 
   **Coverage promotion (the ONLY place a row becomes `verified`):**
+  - Read `QA_TARGET_ENV` from `BOOTSTRAP.md` (the environment whose QA guarantees; default: the last
+    entry of `QA_ENVIRONMENTS`, e.g. `prod`).
   - Re-check the PR state with `gh pr view <n> --json state`.
-  - **If `state == "MERGED"` AND all cards `Approved`:** in `.audit/coverage.md`, set this
-    finding's behavior/area row `Status` to **`verified`** (keep the tier from the finding's
-    `evidence.confidence`). This is the only transition that increases the guaranteed coverage %.
-  - **If approved but NOT yet merged:** leave the row as `resolved` and tell the dev:
-    > "Coverage stays *pending* until you merge PR #X. After merging, run `/audit-qa NNN` once
-    > more to promote this area to `verified`."
-  - Never set `verified` on approval alone — approval **and** merge are both required.
+  - **Promote to `verified` ONLY when BOTH hold:** `qa-{{QA_TARGET_ENV}}: approved` **and**
+    `state == "MERGED"`. Then set this finding's `.audit/coverage.md` row `Status` to **`verified`**
+    (keep the tier from `evidence.confidence`). This is the only transition that raises guaranteed coverage.
+  - **Otherwise** leave the row as `resolved` (pending) and tell the dev what's still missing
+    (e.g. "approved on staging, but the guarantee env is prod" or "approved but PR not merged yet").
+  - Never set `verified` on a non-target environment or on approval without merge.
 
 - **Mixed (some Approved + some Awaiting)**: report partial progress. Wait.
 

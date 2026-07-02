@@ -146,12 +146,20 @@ Modules/screens/steps that may show up in findings. Used by `/audit-status` to g
 
 ---
 
-## 11. Preview / testable branch
+## 11. QA environments & preview
 
-QA validates on the branch/PR **before** the merge — QA is a merge gate. This section tells `/audit-qa` how to point a QA card at a testable environment.
+QA is multi-phase: **local** (localhost, before the PR — blocks `/audit-pr`) and per **deployment environment** (dev/staging/prod, after the PR/deploy). Coverage only becomes `verified` when the target-environment QA is approved **and** the PR is merged.
 
+**QA environments (ordered)**: {{QA_ENVIRONMENTS}}
+**QA target (guarantee) environment**: {{QA_TARGET_ENV}}
 **Preview mode**: {{PREVIEW_MODE}}
 **Preview URL pattern**: {{PREVIEW_URL_PATTERN}}
+
+<!-- QA_ENVIRONMENTS: ordered chain starting with `local`, e.g. `local, staging, prod`.
+     QA_TARGET_ENV: which environment's QA guarantees (default: the last one, e.g. prod).
+     For each deployment env, note its URL / access below.
+-->
+{{QA_ENVIRONMENT_URLS}}
 
 <!-- PREVIEW_MODE is one of:
      - per-branch-url : there is a per-branch/per-PR deploy.
