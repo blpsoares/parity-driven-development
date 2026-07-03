@@ -1,16 +1,56 @@
 {
   "name": "parity-driven-development",
   "version": "2.1.0",
-  "description": "PDD — Parity-Driven Development. Framework para refactor de legados. Inclui a CLI `pdd` de painel de progresso.",
-  "private": true,
+  "description": "PDD — Parity-Driven Development. A framework for reliable legacy refactor/rewrite/port with tracked behavioral parity. Ships the `pdd` progress dashboard CLI (runs on Node or Bun).",
   "type": "module",
   "bin": {
-    "pdd": "scripts/pdd/index.ts"
+    "pdd": "dist/pdd.js"
+  },
+  "files": [
+    "dist/",
+    "skills/",
+    ".claude-plugin/",
+    "bin/",
+    "scripts/install-cli.sh",
+    "scripts/ensure-cli.sh",
+    "scripts/session-update-check.sh",
+    "README.md",
+    "AGENTS.md",
+    "INSTALL.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
+    "build": "esbuild scripts/pdd/index.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/pdd.js --banner:js=\"#!/usr/bin/env node\"",
+    "prepublishOnly": "npm run build",
     "pdd": "bun run scripts/pdd/index.ts",
     "test": "bun test scripts/pdd"
   },
+  "keywords": [
+    "pdd",
+    "parity",
+    "audit",
+    "migration",
+    "refactor",
+    "legacy",
+    "framework",
+    "cli",
+    "dashboard"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blpsoares/parity-driven-development.git"
+  },
+  "homepage": "https://github.com/blpsoares/parity-driven-development#readme",
+  "bugs": {
+    "url": "https://github.com/blpsoares/parity-driven-development/issues"
+  },
   "author": "Bryan Soares",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
 }

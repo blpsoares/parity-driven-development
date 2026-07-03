@@ -117,14 +117,18 @@ PDD's method (`.audit/`) and the `pdd` CLI are **harness-agnostic** — only the
 registers slash commands differs. PDD is command-based (like `specify init`), not hook-based, so
 installing just scaffolds the right command files.
 
-**Universal installer** (needs `git` + [`bun`](https://bun.sh); works with no Claude Code):
+**Easiest — via npm** (needs only Node ≥ 18; works with no Claude Code):
+
+```bash
+npx parity-driven-development init                 # interactive picker (specify-init style)
+npx parity-driven-development init codex gemini    # or name the agents
+```
+
+**Or the shell installer** (needs `git` + [`bun`](https://bun.sh)):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <codex|cursor|copilot|gemini|all>
 ```
-
-Already have the CLI? **`pdd init`** opens an interactive picker (specify-init style) — select your
-agents and scope, and it installs into each.
 
 **Per agent** — expand your agent:
 
@@ -209,6 +213,7 @@ Tell the agent to *fetch and follow* [`INSTALL.md`](INSTALL.md), or point it at 
 
 | Installed via | Update command |
 |---|---|
+| **npm** | `npm i -g parity-driven-development@latest` (or just `npx parity-driven-development@latest …`) |
 | Claude Code plugin | `claude plugin update pdd@parity-driven-development` (then `pdd init` to refresh other agents' commands) |
 | `install.sh` / git clone | `pdd update` — pulls the latest and re-generates your agents' command files |
 | Codex / Cursor / Copilot / Gemini | re-run `install.sh <harness>` (or `pdd update`) — the generated command files are static snapshots and don't auto-update |
@@ -251,8 +256,9 @@ Status is one of `not-started` · `finding-open` · `verified`.
 
 ## The `pdd` CLI
 
-A zero-dependency **Bun** tool that renders the same state as `/audit-status`, but as a
-terminal panel you can keep open.
+An **optional** dependency-free terminal dashboard that renders the same state as `/audit-status`.
+It runs on **Node** (via npm/npx — nothing else to install) or **Bun**. The whole PDD *method* needs
+no runtime at all — this is just a nicer way to watch progress.
 
 ![pdd dashboard](demo/pdd.gif)
 
@@ -260,14 +266,21 @@ terminal panel you can keep open.
 > [VHS](https://github.com/charmbracelet/vhs) — reproducible, always matching the current UI.
 > See [`demo/README.md`](demo/README.md) to regenerate it.
 
-### Enabling the `pdd` command
+### Getting the `pdd` command
 
-Claude Code plugins can't register a binary on your PATH, so install the stable wrapper once
-(it resolves the installed plugin version dynamically and survives `claude plugin update`):
+Easiest — via **npm** (needs only Node ≥ 18, which you almost certainly have):
 
+```bash
+npx parity-driven-development board     # zero-install, one-off
+# or install it globally:
+npm install -g parity-driven-development
 ```
+
+Already using the **Claude Code plugin**? The CLI ships with it — install the stable wrapper once
+(resolves the installed version dynamically, survives `claude plugin update`):
+
+```bash
 bash ~/.claude/plugins/cache/parity-driven-development/pdd/*/scripts/install-cli.sh
-# installs `pdd` to ~/.local/bin (pass another dir as $1 to override)
 ```
 
 Then, from any project that ran `/audit-bootstrap`:

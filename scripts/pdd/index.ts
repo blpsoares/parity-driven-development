@@ -1,6 +1,6 @@
-#!/usr/bin/env bun
-// PDD 2.0 — `pdd` CLI entry point.
-// Zero external dependencies. All comments and identifiers are in English.
+// PDD 2.0 — `pdd` CLI entry point. Runs on Node (via the built dist/pdd.js) or
+// Bun (run the source directly). The build adds the `#!/usr/bin/env node` shebang.
+// Zero external runtime dependencies. All comments and identifiers are in English.
 //
 // Usage:
 //   pdd board [path]            Print the dashboard once.
@@ -10,6 +10,7 @@
 
 import { watch, existsSync } from "node:fs";
 import { join, resolve, isAbsolute, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { readMergedAuditState, pruneStaleActivity } from "./state";
 import { renderBoard } from "./render";
 import { runTui } from "./tui";
@@ -23,8 +24,35 @@ import {
 } from "./update";
 import { spawnSync } from "node:child_process";
 
-/** The repo root of the running CLI (two levels up from scripts/pdd). */
-const PLUGIN_ROOT = join(import.meta.dir, "..", "..");
+// Runs on both Node and Bun. `import.meta.dir` is Bun-only, so derive the
+// directory portably from `import.meta.url`.
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+/** Walk up from `start` to the first directory that contains `marker`. */
+function findUpDir(start: string, marker: string): string {
+  let dir = start;
+  for (;;) {
+    if (existsSync(join(dir, marker))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return start; // fallback: give back the start
+    dir = parent;
+  }
+}
+
+// The package root holds `skills/` and `.claude-plugin/`. Resolving by walking
+// up works whether the CLI runs from source (scripts/pdd/), the bundled npm
+// package (dist/), or the Claude plugin cache.
+const PLUGIN_ROOT = findUpDir(HERE, "skills");
+const SKILLS_DIR = join(PLUGIN_ROOT, "skills");
+
+/** Portable `which`: is `bin` an executable on PATH? (replaces Bun.which). */
+function whichBin(bin: string): boolean {
+  const sep = process.platform === "win32" ? ";" : ":";
+  const exts = process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"] : [""];
+  return (process.env.PATH ?? "")
+    .split(sep)
+    .some((p) => p && exts.some((ext) => existsSync(join(p, bin + ext))));
+}
 
 /** Walk up from `start` looking for a directory that contains `.audit`. */
 function findAuditUpwards(start: string): string | null {
@@ -100,7 +128,7 @@ function watchBoard(auditDir: string): void {
 function detectHarnesses(all: Harness[], projectRoot: string): Harness[] {
   const home = process.env.HOME ?? "";
   const has = (bin: string, dir: string) =>
-    Boolean(Bun.which(bin)) || (dir !== "" && existsSync(dir));
+    Boolean(whichBin(bin)) || (dir !== "" && existsSync(dir));
   const map: Record<Harness, boolean> = {
     codex: has("codex", join(home, ".codex")),
     cursor: has("cursor", join(home, ".cursor")),
@@ -147,7 +175,7 @@ async function runUpdate(): Promise<void> {
 async function runInit(args: string[]): Promise<void> {
   const all: Harness[] = ["codex", "cursor", "copilot", "gemini"];
   const projectRoot = process.cwd();
-  const skillsDir = join(import.meta.dir, "..", "..", "skills");
+  const skillsDir = SKILLS_DIR;
   const explicit = args.slice(1).filter((a): a is Harness => all.includes(a as Harness));
   const detected = detectHarnesses(all, projectRoot);
 
@@ -239,7 +267,7 @@ async function main(argv: string[]): Promise<void> {
     }
     const global = args.includes("--global");
     const projectRoot = args.slice(2).find((a) => !a.startsWith("-")) ?? process.cwd();
-    const skillsDir = join(import.meta.dir, "..", "..", "skills");
+    const skillsDir = SKILLS_DIR;
     const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
     if (written.length === 0) {
       process.stdout.write("No skills found to adapt.\n");
