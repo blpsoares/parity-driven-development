@@ -7,7 +7,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <harness> [--global] [project-dir]
 #   ./install.sh <claude|codex|cursor|copilot|gemini|all> [--global] [project-dir]
 #
-# Prereqs: git and bun (https://bun.sh). Bun powers both the adapter and the CLI.
+# Prereqs: git, and EITHER Node (https://nodejs.org) OR Bun (https://bun.sh).
+# No npm needed — the CLI runs from the committed dist/pdd.js (Node) or source (Bun).
 set -euo pipefail
 
 REPO_URL="https://github.com/blpsoares/parity-driven-development.git"
@@ -38,7 +39,6 @@ case "$HARNESS" in
 esac
 
 command -v git >/dev/null 2>&1 || die "git is required."
-command -v bun >/dev/null 2>&1 || die "bun is required — install it from https://bun.sh"
 
 # Clone or update the repo cache.
 if [ -d "$CACHE/.git" ]; then
@@ -48,7 +48,14 @@ else
   git clone -q "$REPO_URL" "$CACHE"
 fi
 
-CLI="$CACHE/scripts/pdd/index.ts"
+# Choose a runtime: Node running the committed bundle, or Bun running the source.
+if command -v node >/dev/null 2>&1 && [ -f "$CACHE/dist/pdd.js" ]; then
+  run() { node "$CACHE/dist/pdd.js" "$@"; }
+elif command -v bun >/dev/null 2>&1; then
+  run() { bun "$CACHE/scripts/pdd/index.ts" "$@"; }
+else
+  die "needs Node (https://nodejs.org) or Bun (https://bun.sh) to run the installer/CLI."
+fi
 
 # Install the `pdd` dashboard CLI wrapper (best-effort).
 bash "$CACHE/scripts/install-cli.sh" >/dev/null 2>&1 || true
@@ -57,11 +64,11 @@ case "$HARNESS" in
   all)
     for h in codex cursor copilot gemini; do
       # shellcheck disable=SC2086
-      bun "$CLI" adapt "$h" $GLOBAL "$PROJECT"
+      run adapt "$h" $GLOBAL "$PROJECT"
     done ;;
   codex|cursor|copilot|gemini)
     # shellcheck disable=SC2086
-    bun "$CLI" adapt "$HARNESS" $GLOBAL "$PROJECT" ;;
+    run adapt "$HARNESS" $GLOBAL "$PROJECT" ;;
   *)
     die "unknown harness '$HARNESS' (use claude|codex|cursor|copilot|gemini|all)" ;;
 esac

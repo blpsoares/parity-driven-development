@@ -6,8 +6,8 @@ All notable changes to PDD are documented here. This project follows
 ## [2.1.0]
 
 ### Added
-- **Runs on Node (npm/npx) or Bun.** The `pdd` CLI is now Node-compatible and published to npm —
-  `npx parity-driven-development …` needs only Node ≥ 18, no Bun. The PDD method itself still needs no
+- **Runs on Node or Bun (no npm).** The `pdd` CLI is now Node-compatible — it runs from the committed
+  `dist/pdd.js` on Node (or the source on Bun) — no npm, no build step. The PDD method itself still needs no
   runtime at all (the skills are markdown; the CLI is optional).
 - **Multi-phase, environment-aware QA.** `/audit-qa NNN <env>` runs **local** (localhost, before the
   PR — its approval blocks `/audit-pr`) and per **deployment environment** (dev/staging/prod, after the

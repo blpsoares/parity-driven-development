@@ -5,29 +5,18 @@ https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/INSTA
 will install PDD's commands into your environment. PDD is command-based (like `specify init`), not
 hook-based, so installation just scaffolds the right command files for your agent.
 
-## Fastest path — npm (Node ≥ 18)
+## Fastest path — shell installer (no npm)
 
-From your project directory:
-
-```bash
-npx parity-driven-development init            # interactive picker, or:
-npx parity-driven-development init <harness>  # codex | cursor | copilot | gemini
-```
-
-No Bun needed — Node only. `init` scaffolds the command files and an always-on update rule for the
-chosen agent(s). (The PDD method itself needs no runtime; this just installs the commands + the
-optional `pdd` dashboard.)
-
-## Alternative — shell installer
-
-Requires `git` and [`bun`](https://bun.sh):
+Requires `git` and **Node or Bun** (no npm). From your project directory:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <harness>
 ```
 
 Replace `<harness>` with `codex`, `cursor`, `copilot`, `gemini`, or `all`. Add `--global` to install
-into your home config instead of the project.
+into your home config instead of the project. This also installs the optional `pdd` dashboard CLI.
+
+(The PDD method itself needs no runtime — this just scaffolds the command files + the optional CLI.)
 
 ## Per-agent native install
 

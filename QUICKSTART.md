@@ -4,7 +4,7 @@ A hands-on walkthrough: from zero to your first verified finding. Run **one comm
 each step is gated and refuses to advance on weak input, so the framework guides you.
 
 > **Requirements:** the PDD *method* needs nothing (the commands are markdown). Only the optional
-> `pdd` dashboard needs Node ≥ 18 (via `npx`) or Bun.
+> `pdd` dashboard needs **Node or Bun** — no npm.
 
 ---
 
@@ -18,7 +18,7 @@ claude plugin install pdd@parity-driven-development --scope project
 
 **Any other agent (Codex / Cursor / Copilot / Gemini):**
 ```bash
-npx parity-driven-development init      # interactive picker — pick your agent(s)
+curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <agent>
 ```
 
 ## 1 · `/audit-bootstrap` — set up (run once)
