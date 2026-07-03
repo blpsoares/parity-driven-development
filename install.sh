@@ -4,7 +4,7 @@
 # from the canonical skills, plus installs the `pdd` dashboard CLI.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <harness> [--global] [project-dir]
+#   curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <harness> [--global] [project-dir]
 #   ./install.sh <claude|codex|cursor|copilot|gemini|all> [--global] [project-dir]
 #
 # Prereqs: git, and EITHER Node (https://nodejs.org) OR Bun (https://bun.sh).

@@ -1,7 +1,16 @@
 // PDD 2.0 — tests for the cross-harness adapter (pure renderers).
 
 import { test, expect } from "bun:test";
-import { parseSkill, renderSkillFor, baseDirFor, rulesTargetFor, rulesFileContent, upsertBlock } from "./adapt";
+import { homedir } from "node:os";
+import {
+  parseSkill,
+  renderSkillFor,
+  baseDirFor,
+  rulesTargetFor,
+  rulesFileContent,
+  upsertBlock,
+  assertSafeProjectRoot,
+} from "./adapt";
 
 const SAMPLE = `---
 name: "audit-new"
@@ -28,26 +37,23 @@ test("parseSkill extracts name, description and body", () => {
   expect(s.body).not.toContain("disable-model-invocation"); // frontmatter stripped
 });
 
-test("codex keeps $ARGUMENTS and writes prompts/<name>.md", () => {
+test("codex writes the shared .agents/skills/<name>/SKILL.md convention", () => {
   const out = renderSkillFor("codex", parseSkill(SAMPLE));
-  expect(out.relPath).toBe("prompts/audit-new.md");
-  expect(out.content).toContain("$ARGUMENTS");
-});
-
-test("gemini emits TOML with description + prompt and {{args}}", () => {
-  const out = renderSkillFor("gemini", parseSkill(SAMPLE));
-  expect(out.relPath).toBe("commands/audit-new.toml");
-  expect(out.content).toContain("description =");
-  expect(out.content).toContain("prompt = \"\"\"");
-  expect(out.content).toContain("{{args}}");
+  expect(out.relPath).toBe(".agents/skills/audit-new/SKILL.md");
+  expect(out.content).toMatch(/^---\nname: audit-new\ndescription:/);
   expect(out.content).not.toContain("$ARGUMENTS");
 });
 
-test("copilot emits .prompt.md with frontmatter and ${input:args}", () => {
+test("gemini writes the same shared .agents/skills convention as codex", () => {
+  const out = renderSkillFor("gemini", parseSkill(SAMPLE));
+  expect(out.relPath).toBe(".agents/skills/audit-new/SKILL.md");
+  expect(out.content).not.toContain("$ARGUMENTS");
+});
+
+test("copilot writes the same shared .agents/skills convention", () => {
   const out = renderSkillFor("copilot", parseSkill(SAMPLE));
-  expect(out.relPath).toBe(".github/prompts/audit-new.prompt.md");
-  expect(out.content).toMatch(/^---\ndescription:/);
-  expect(out.content).toContain("${input:args}");
+  expect(out.relPath).toBe(".agents/skills/audit-new/SKILL.md");
+  expect(out.content).toMatch(/^---\nname: audit-new\ndescription:/);
 });
 
 test("cursor writes commands/<name>.md and rewrites the arg token", () => {
@@ -56,13 +62,21 @@ test("cursor writes commands/<name>.md and rewrites the arg token", () => {
   expect(out.content).not.toContain("$ARGUMENTS");
 });
 
-test("baseDirFor honors global vs project (Codex is always home)", () => {
-  // Codex only reads ~/.codex — never the project dir.
-  expect(baseDirFor("codex", "/proj", false)).not.toContain("/proj");
-  expect(baseDirFor("codex", "/proj", false)).toContain(".codex");
+test("baseDirFor honors global vs project for all .agents/skills harnesses", () => {
+  // Codex/Gemini/Copilot all discover .agents/skills at the project root, or
+  // the home-global ~/.agents/skills — none of them are home-only anymore.
+  expect(baseDirFor("codex", "/proj", false)).toBe("/proj");
+  expect(baseDirFor("codex", "/proj", true)).not.toContain("/proj");
   expect(baseDirFor("copilot", "/proj", false)).toBe("/proj");
   expect(baseDirFor("cursor", "/proj", false)).toBe("/proj/.cursor");
-  expect(baseDirFor("gemini", "/proj", true)).toContain(".gemini");
+  expect(baseDirFor("gemini", "/proj", true)).not.toContain("/proj");
+});
+
+test("assertSafeProjectRoot refuses $HOME without --global", () => {
+  const home = homedir();
+  expect(() => assertSafeProjectRoot(home, false)).toThrow(/home directory/);
+  expect(() => assertSafeProjectRoot(home, true)).not.toThrow();
+  expect(() => assertSafeProjectRoot("/some/project", false)).not.toThrow();
 });
 
 test("adapted commands are agent-neutral (no 'Claude' leakage)", () => {

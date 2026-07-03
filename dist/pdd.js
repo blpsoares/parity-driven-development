@@ -2,7 +2,7 @@
 
 // scripts/pdd/index.ts
 import { watch as watch2, existsSync as existsSync4 } from "node:fs";
-import { join as join4, resolve as resolve2, isAbsolute, dirname as dirname3 } from "node:path";
+import { join as join4, resolve as resolve3, isAbsolute, dirname as dirname3 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // scripts/pdd/state.ts
@@ -1243,7 +1243,7 @@ function runTui(auditDir, note = "", lang = "en") {
 
 // scripts/pdd/adapt.ts
 import { readFileSync as readFileSync2, readdirSync as readdirSync2, existsSync as existsSync2, mkdirSync, writeFileSync } from "node:fs";
-import { join as join2 } from "node:path";
+import { join as join2, resolve as resolve2 } from "node:path";
 import { homedir } from "node:os";
 function parseSkill(md) {
   const m = md.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
@@ -1253,62 +1253,37 @@ function parseSkill(md) {
   const description = (front.match(/description:\s*["']?([\s\S]*?)["']?\s*\n[a-z-]+:/)?.[1] ?? "").replace(/\s+/g, " ").trim();
   return { name, description, body };
 }
-var ARG_TOKEN = {
-  codex: "$ARGUMENTS",
-  // Codex expands $ARGUMENTS, same as Claude Code
-  cursor: "the arguments the user typed after the command",
-  copilot: "${input:args}",
-  gemini: "{{args}}"
-};
-function withArgs(body, harness) {
-  return body.split("$ARGUMENTS").join(ARG_TOKEN[harness]);
+var AGENTS_SKILLS_HARNESSES = /* @__PURE__ */ new Set(["codex", "gemini", "copilot"]);
+var NATURAL_ARGS = "the arguments the user typed after the command";
+function withArgs(body) {
+  return body.split("$ARGUMENTS").join(NATURAL_ARGS);
 }
 function deClaude(s) {
   return s.replace(/\bClaude Code\b/g, "the agent").replace(/\bClaude\b/g, "the agent");
 }
 function renderSkillFor(harness, skill) {
-  const body = deClaude(withArgs(skill.body, harness));
+  const body = deClaude(withArgs(skill.body));
   const description = deClaude(skill.description);
-  switch (harness) {
-    case "codex":
-      return { relPath: `prompts/${skill.name}.md`, content: body + "\n" };
-    case "cursor":
-      return { relPath: `commands/${skill.name}.md`, content: body + "\n" };
-    case "copilot":
-      return {
-        relPath: `.github/prompts/${skill.name}.prompt.md`,
-        content: `---
-description: "${description.replace(/"/g, "'")}"
+  if (AGENTS_SKILLS_HARNESSES.has(harness)) {
+    return {
+      relPath: `.agents/skills/${skill.name}/SKILL.md`,
+      content: `---
+name: ${skill.name}
+description: ${description}
 ---
 
 ${body}
 `
-      };
-    case "gemini": {
-      const prompt = body.split('"""').join('\\"\\"\\"');
-      return {
-        relPath: `commands/${skill.name}.toml`,
-        content: `description = "${description.replace(/"/g, "'")}"
-prompt = """
-${prompt}
-"""
-`
-      };
-    }
+    };
   }
+  return { relPath: `commands/${skill.name}.md`, content: body + "\n" };
 }
 function baseDirFor(harness, projectRoot, global) {
   const home = homedir();
-  switch (harness) {
-    case "codex":
-      return join2(home, ".codex");
-    case "cursor":
-      return global ? join2(home, ".cursor") : join2(projectRoot, ".cursor");
-    case "gemini":
-      return global ? join2(home, ".gemini") : join2(projectRoot, ".gemini");
-    case "copilot":
-      return projectRoot;
+  if (AGENTS_SKILLS_HARNESSES.has(harness)) {
+    return global ? home : projectRoot;
   }
+  return global ? join2(home, ".cursor") : join2(projectRoot, ".cursor");
 }
 function readSkills(skillsDir) {
   if (!existsSync2(skillsDir)) return [];
@@ -1381,7 +1356,17 @@ function writeRules(harness, projectRoot) {
   }
   return target;
 }
+function assertSafeProjectRoot(projectRoot, global) {
+  if (global) return;
+  if (resolve2(projectRoot) === homedir()) {
+    throw new Error(
+      `refusing to install into your home directory (${homedir()}) without --global.
+cd into your project first, or pass --global if you really want a global install.`
+    );
+  }
+}
 function adaptAll(harness, opts) {
+  assertSafeProjectRoot(opts.projectRoot, opts.global);
   const base = baseDirFor(harness, opts.projectRoot, opts.global);
   const written = [];
   for (const skill of readSkills(opts.skillsDir)) {
@@ -1468,10 +1453,10 @@ function renderMenu(title, items, s, multi) {
   return lines.join("\n");
 }
 function runMenu(title, items, opts) {
-  return new Promise((resolve3) => {
+  return new Promise((resolve4) => {
     const stdin = process.stdin;
     if (!stdin.isTTY) {
-      resolve3(null);
+      resolve4(null);
       return;
     }
     let s = {
@@ -1491,13 +1476,13 @@ function runMenu(title, items, opts) {
       const key = parseMenuKey(d);
       if (key === "cancel") {
         cleanup();
-        resolve3(null);
+        resolve4(null);
         return;
       }
       if (key === "enter") {
         const result = opts.multi ? [...s.checked].sort((a, b) => a - b) : [s.cursor];
         cleanup();
-        resolve3(result);
+        resolve4(result);
         return;
       }
       if (key === "") return;
@@ -1634,7 +1619,7 @@ function findAuditUpwards(start) {
 }
 function resolveAuditDir(pathArg) {
   if (pathArg) {
-    const base = isAbsolute(pathArg) ? pathArg : resolve2(process.cwd(), pathArg);
+    const base = isAbsolute(pathArg) ? pathArg : resolve3(process.cwd(), pathArg);
     return base.endsWith(".audit") ? base : join4(base, ".audit");
   }
   return findAuditUpwards(process.cwd()) ?? join4(process.cwd(), ".audit");
@@ -1745,23 +1730,21 @@ async function runInit(args) {
       return;
     }
     targets = picked.map((i) => all[i]);
-    if (targets.some((t2) => t2 !== "codex")) {
-      const scope = await runMenu(
-        "Install scope?",
-        [{ label: "project", hint: projectRoot }, { label: "global", hint: "your home config" }],
-        { multi: false }
-      );
-      if (scope === null) {
-        process.stdout.write("Cancelled \u2014 nothing installed.\n");
-        return;
-      }
-      global = scope[0] === 1;
+    const scope = await runMenu(
+      "Install scope?",
+      [{ label: "project", hint: projectRoot }, { label: "global", hint: "your home config" }],
+      { multi: false }
+    );
+    if (scope === null) {
+      process.stdout.write("Cancelled \u2014 nothing installed.\n");
+      return;
     }
+    global = scope[0] === 1;
   }
   process.stdout.write("\n");
   for (const harness of targets) {
     const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
-    const where = harness === "codex" ? "~/.codex (home)" : global ? "home config" : "project";
+    const where = global ? "home config" : "project";
     process.stdout.write(`\u2705 ${harness} \u2192 ${written.length} command(s) in ${where}
 `);
   }
@@ -1783,7 +1766,7 @@ async function main(argv) {
     await runUpdate();
     return;
   }
-  if (command === "init") {
+  if (command === "init" || command === "install") {
     await runInit(args);
     return;
   }
@@ -1815,7 +1798,7 @@ Generates PDD slash-command / prompt files for that agent from the canonical ski
   }
   if (command !== "board" && command !== "tui" && command !== "prune") {
     process.stdout.write(
-      "pdd \u2014 Parity-Driven Development dashboard\n\nUsage:\n  pdd                       Interactive, navigable dashboard (default)\n  pdd tui [path]            Interactive dashboard (\u2191/\u2193 navigate, \u2192/enter expand, q quit)\n  pdd board [path]          Print a static snapshot once\n  pdd board --watch [path]  Static auto-refresh on .audit changes\n  pdd prune [path]          Remove stale/orphaned activity records\n  pdd init [harness...]     Install PDD commands into detected agents (or the ones given)\n  pdd adapt <harness>       Generate command files for one of Codex/Cursor/Copilot/Gemini\n  pdd check                 Check whether a newer PDD version is available\n  pdd update                Update PDD (git clone) or show how (Claude plugin)\n  pdd version               Print the installed version\n\nWith no [path], pdd walks up from the current directory to find .audit.\n"
+      "pdd \u2014 Parity-Driven Development dashboard\n\nUsage:\n  pdd                       Interactive, navigable dashboard (default)\n  pdd tui [path]            Interactive dashboard (\u2191/\u2193 navigate, \u2192/enter expand, q quit)\n  pdd board [path]          Print a static snapshot once\n  pdd board --watch [path]  Static auto-refresh on .audit changes\n  pdd prune [path]          Remove stale/orphaned activity records\n  pdd init [harness...]     Install PDD commands into detected agents (or the ones given)\n  pdd install [harness...]  Alias for `pdd init`\n  pdd adapt <harness>       Generate command files for one of Codex/Cursor/Copilot/Gemini\n  pdd check                 Check whether a newer PDD version is available\n  pdd update                Update PDD (git clone) or show how (Claude plugin)\n  pdd version               Print the installed version\n\nWith no [path], pdd walks up from the current directory to find .audit.\n"
     );
     process.exitCode = 1;
     return;

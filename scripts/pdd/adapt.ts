@@ -4,7 +4,7 @@
 // The pure renderers (parseSkill, renderSkillFor) are unit-tested; adaptAll does IO.
 
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 
 export interface Skill {
@@ -27,16 +27,21 @@ export function parseSkill(md: string): Skill {
 
 export type Harness = "codex" | "cursor" | "copilot" | "gemini";
 
-/** How each harness expects the "arguments" placeholder to be written. */
-const ARG_TOKEN: Record<Harness, string> = {
-  codex: "$ARGUMENTS", // Codex expands $ARGUMENTS, same as Claude Code
-  cursor: "the arguments the user typed after the command",
-  copilot: "${input:args}",
-  gemini: "{{args}}",
-};
+/**
+ * Codex CLI, Gemini CLI and Copilot CLI all discover the same convergent
+ * convention: a `.agents/skills/<name>/SKILL.md` directory at the project
+ * root (each also accepts a home-global `~/.agents/skills/`). Codex's older
+ * `~/.codex/prompts` custom-prompt mechanism is deprecated by OpenAI in favor
+ * of this. None of the three support literal argument substitution for
+ * skills — they're picked from a menu or matched by description — so their
+ * bodies use natural-language phrasing instead of a `$ARGUMENTS` token.
+ */
+const AGENTS_SKILLS_HARNESSES: ReadonlySet<Harness> = new Set(["codex", "gemini", "copilot"]);
 
-function withArgs(body: string, harness: Harness): string {
-  return body.split("$ARGUMENTS").join(ARG_TOKEN[harness]);
+const NATURAL_ARGS = "the arguments the user typed after the command";
+
+function withArgs(body: string): string {
+  return body.split("$ARGUMENTS").join(NATURAL_ARGS);
 }
 
 /** Make adapted commands agent-neutral (they run outside Claude Code). */
@@ -49,43 +54,27 @@ export function renderSkillFor(
   harness: Harness,
   skill: Skill,
 ): { relPath: string; content: string } {
-  const body = deClaude(withArgs(skill.body, harness));
+  const body = deClaude(withArgs(skill.body));
   const description = deClaude(skill.description);
-  switch (harness) {
-    case "codex":
-      return { relPath: `prompts/${skill.name}.md`, content: body + "\n" };
-    case "cursor":
-      return { relPath: `commands/${skill.name}.md`, content: body + "\n" };
-    case "copilot":
-      return {
-        relPath: `.github/prompts/${skill.name}.prompt.md`,
-        content: `---\ndescription: "${description.replace(/"/g, "'")}"\n---\n\n${body}\n`,
-      };
-    case "gemini": {
-      const prompt = body.split('"""').join('\\"\\"\\"');
-      return {
-        relPath: `commands/${skill.name}.toml`,
-        content: `description = "${description.replace(/"/g, "'")}"\nprompt = """\n${prompt}\n"""\n`,
-      };
-    }
+  if (AGENTS_SKILLS_HARNESSES.has(harness)) {
+    return {
+      relPath: `.agents/skills/${skill.name}/SKILL.md`,
+      content: `---\nname: ${skill.name}\ndescription: ${description}\n---\n\n${body}\n`,
+    };
   }
+  // cursor: its own commands convention, not the .agents/skills standard.
+  return { relPath: `commands/${skill.name}.md`, content: body + "\n" };
 }
 
 /** Base directory a harness writes into (global = user home, else the project root). */
 export function baseDirFor(harness: Harness, projectRoot: string, global: boolean): string {
   const home = homedir();
-  switch (harness) {
-    case "codex":
-      // Codex only reads prompts from $CODEX_HOME (default ~/.codex) — a
-      // project-level .codex is NOT discovered, so always install to home.
-      return join(home, ".codex");
-    case "cursor":
-      return global ? join(home, ".cursor") : join(projectRoot, ".cursor");
-    case "gemini":
-      return global ? join(home, ".gemini") : join(projectRoot, ".gemini");
-    case "copilot":
-      return projectRoot; // relPath already includes .github/prompts
+  if (AGENTS_SKILLS_HARNESSES.has(harness)) {
+    // relPath already includes .agents/skills/<name>/SKILL.md
+    return global ? home : projectRoot;
   }
+  // cursor
+  return global ? join(home, ".cursor") : join(projectRoot, ".cursor");
 }
 
 /** Read every canonical skill from a `skills/` directory. */
@@ -165,11 +154,28 @@ export function writeRules(harness: Harness, projectRoot: string): string {
   return target;
 }
 
+/**
+ * Refuse to write project-scoped files into $HOME. Without this, running the
+ * installer from outside a project (e.g. `pdd adapt codex` from `~`) silently
+ * scatters AGENTS.md / .cursor / .gemini / .agents/skills into the user's
+ * home directory instead of their project. `--global` opts in explicitly.
+ */
+export function assertSafeProjectRoot(projectRoot: string, global: boolean): void {
+  if (global) return;
+  if (resolve(projectRoot) === homedir()) {
+    throw new Error(
+      `refusing to install into your home directory (${homedir()}) without --global.\n` +
+        "cd into your project first, or pass --global if you really want a global install.",
+    );
+  }
+}
+
 /** Generate all command files (and the always-on rule) for a harness. */
 export function adaptAll(
   harness: Harness,
   opts: { skillsDir: string; projectRoot: string; global: boolean; rules?: boolean },
 ): string[] {
+  assertSafeProjectRoot(opts.projectRoot, opts.global);
   const base = baseDirFor(harness, opts.projectRoot, opts.global);
   const written: string[] = [];
   for (const skill of readSkills(opts.skillsDir)) {

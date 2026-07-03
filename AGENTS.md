@@ -33,14 +33,18 @@ human "yes"; merge is 100% human, only after the target-environment QA approves.
 
 ## Installing the commands per harness
 
-From a project (or add `--global` to install into your home config):
+From a project (or add `--global` to install into your home config, e.g. `~/.agents/skills`):
 
 ```bash
-pdd adapt codex     # → .codex/prompts/audit-*.md            (invoke: /audit-new …)
-pdd adapt cursor    # → .cursor/commands/audit-*.md           (invoke: /audit-new …)
-pdd adapt copilot   # → .github/prompts/audit-*.prompt.md     (VS Code/JetBrains: /audit-new)
-pdd adapt gemini    # → .gemini/commands/audit-*.toml         (invoke: /audit-new …)
+pdd adapt codex     # → .agents/skills/audit-*/SKILL.md   (Codex: open /skills, or let it match by description)
+pdd adapt gemini    # → .agents/skills/audit-*/SKILL.md   (Gemini CLI: run /skills reload after installing)
+pdd adapt copilot   # → .agents/skills/audit-*/SKILL.md   (Copilot CLI: /skills reload; VS Code/JetBrains: automatic)
+pdd adapt cursor    # → .cursor/commands/audit-*.md       (invoke: /audit-new …)
 ```
+
+Codex, Gemini CLI and Copilot CLI all discover the same `.agents/skills/<name>/SKILL.md`
+convention — installing for one writes files the other two can read too. Cursor keeps its own
+format since it doesn't read `.agents/skills`.
 
 For any other agent: point it at this `AGENTS.md` and the `skills/` directory — the SKILL.md
 bodies are self-contained instructions. When a command takes arguments, pass them where the file

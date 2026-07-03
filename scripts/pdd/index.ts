@@ -205,25 +205,22 @@ async function runInit(args: string[]): Promise<void> {
     }
     targets = picked.map((i) => all[i]);
 
-    // Scope only matters if a non-Codex agent is selected (Codex is always home).
-    if (targets.some((t) => t !== "codex")) {
-      const scope = await runMenu(
-        "Install scope?",
-        [{ label: "project", hint: projectRoot }, { label: "global", hint: "your home config" }],
-        { multi: false },
-      );
-      if (scope === null) {
-        process.stdout.write("Cancelled — nothing installed.\n");
-        return;
-      }
-      global = scope[0] === 1;
+    const scope = await runMenu(
+      "Install scope?",
+      [{ label: "project", hint: projectRoot }, { label: "global", hint: "your home config" }],
+      { multi: false },
+    );
+    if (scope === null) {
+      process.stdout.write("Cancelled — nothing installed.\n");
+      return;
     }
+    global = scope[0] === 1;
   }
 
   process.stdout.write("\n");
   for (const harness of targets) {
     const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
-    const where = harness === "codex" ? "~/.codex (home)" : global ? "home config" : "project";
+    const where = global ? "home config" : "project";
     process.stdout.write(`✅ ${harness} → ${written.length} command(s) in ${where}\n`);
   }
   process.stdout.write("\nInvoke /audit-bootstrap in your agent to begin.\n");
@@ -249,7 +246,7 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
-  if (command === "init") {
+  if (command === "init" || command === "install") {
     await runInit(args);
     return;
   }
@@ -288,6 +285,7 @@ async function main(argv: string[]): Promise<void> {
         "  pdd board --watch [path]  Static auto-refresh on .audit changes\n" +
         "  pdd prune [path]          Remove stale/orphaned activity records\n" +
         "  pdd init [harness...]     Install PDD commands into detected agents (or the ones given)\n" +
+        "  pdd install [harness...]  Alias for `pdd init`\n" +
         "  pdd adapt <harness>       Generate command files for one of Codex/Cursor/Copilot/Gemini\n" +
         "  pdd check                 Check whether a newer PDD version is available\n" +
         "  pdd update                Update PDD (git clone) or show how (Claude plugin)\n" +

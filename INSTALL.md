@@ -10,7 +10,7 @@ hook-based, so installation just scaffolds the right command files for your agen
 Requires `git` and **Node or Bun** (no npm). From your project directory:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <harness>
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <harness>
 ```
 
 Replace `<harness>` with `codex`, `cursor`, `copilot`, `gemini`, or `all`. Add `--global` to install
@@ -20,16 +20,21 @@ into your home config instead of the project. This also installs the optional `p
 
 ## Per-agent native install
 
+Codex, Gemini CLI and Copilot CLI all discover the same convergent convention —
+`.agents/skills/<name>/SKILL.md` at the project root (or `~/.agents/skills/` with `--global`) — so
+one install writes files all three agents can read natively.
+
 | Agent | Command |
 |---|---|
 | **Claude Code** | `/plugin marketplace add blpsoares/parity-driven-development` then `claude plugin install pdd@parity-driven-development --scope project` |
-| **Codex** | `install.sh codex` → `~/.codex/prompts/audit-*.md` (home) |
-| **Cursor** | `install.sh cursor` → `.cursor/commands/audit-*.md` |
-| **Copilot** (VS Code/JetBrains) | `install.sh copilot` → `.github/prompts/audit-*.prompt.md` |
-| **Gemini CLI** | `install.sh gemini` → `.gemini/commands/audit-*.toml` |
+| **Codex** | `install.sh codex` → `.agents/skills/audit-*/SKILL.md`. Invoke via `/skills` (Codex picks by description, not by typing `/audit-new`) |
+| **Gemini CLI** | `install.sh gemini` → `.agents/skills/audit-*/SKILL.md`. Run `/skills reload` after installing |
+| **Copilot** (CLI or VS Code/JetBrains) | `install.sh copilot` → `.agents/skills/audit-*/SKILL.md`. Run `/skills reload` in Copilot CLI |
+| **Cursor** | `install.sh cursor` → `.cursor/commands/audit-*.md` (Cursor doesn't read `.agents/skills`) |
 
 If you already have the `pdd` CLI, `pdd init` detects your installed agents and installs into all of
-them at once (or `pdd init codex cursor …` for specific ones).
+them at once (or `pdd init codex cursor …` for specific ones). It refuses to run from your home
+directory without `--global`, to avoid accidentally scattering project files into `~`.
 
 ## Manual fallback (no bun)
 

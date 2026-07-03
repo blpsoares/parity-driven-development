@@ -120,14 +120,19 @@ PDD's method (`.audit/`) and the `pdd` CLI are **harness-agnostic** — only the
 registers slash commands differs. PDD is command-based (like `specify init`), not hook-based, so
 installing just scaffolds the right command files.
 
+Codex, Gemini CLI and Copilot CLI have converged on the same skill convention —
+`.agents/skills/<name>/SKILL.md` at the project root, or `~/.agents/skills/` globally — so
+installing for any one of them writes files the other two can read natively too. Cursor keeps its
+own `.cursor/commands/*.md` format.
+
 **Shell installer** (needs `git` + **Node or Bun** — no npm; works with no Claude Code):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- <codex|cursor|copilot|gemini|all>
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <codex|cursor|copilot|gemini|all>
 ```
 
-Already have the CLI? **`pdd init`** opens an interactive picker (specify-init style) — select your
-agents and scope, and it installs into each.
+Already have the CLI? **`pdd init`** (alias: `pdd install`) opens an interactive picker
+(specify-init style) — select your agents and scope, and it installs into each.
 
 **Per agent** — expand your agent:
 
@@ -146,44 +151,49 @@ Invoke with `/audit-bootstrap`, `/audit-new`, … Installs as a first-class plug
 <summary><b>Codex</b></summary>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- codex
-# or, if you have the CLI:  pdd adapt codex
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- codex
+# or, if you have the CLI:  pdd adapt codex        (add --global for ~/.agents/skills)
 ```
 
-Writes to **`~/.codex/prompts/audit-*.md`** (Codex only reads prompts from your home, not the repo). Invoke with `/audit-new`. Uses `$ARGUMENTS`.
+Writes to **`.agents/skills/audit-*/SKILL.md`** in the project. Codex's older `~/.codex/prompts`
+custom-prompt mechanism is deprecated by OpenAI in favor of this. Open the `/skills` menu to pick a
+command explicitly, or just describe the task — Codex matches skills by description too.
 </details>
 
 <details>
 <summary><b>Cursor</b></summary>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- cursor
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cursor
 # or:  pdd adapt cursor        (add --global for ~/.cursor)
 ```
 
-Writes to **`.cursor/commands/audit-*.md`** in the project (committable, shared with your team). Invoke with `/audit-new`.
+Writes to **`.cursor/commands/audit-*.md`** in the project (committable, shared with your team).
+Invoke with `/audit-new`. Cursor doesn't read the `.agents/skills` convention the other three share.
 </details>
 
 <details>
-<summary><b>GitHub Copilot</b> (VS Code / JetBrains)</summary>
+<summary><b>GitHub Copilot</b> (CLI, VS Code, JetBrains)</summary>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- copilot
-# or:  pdd adapt copilot
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- copilot
+# or:  pdd adapt copilot        (add --global for ~/.agents/skills)
 ```
 
-Writes to **`.github/prompts/audit-*.prompt.md`**. Invoke with `/audit-new` in the Chat view. ⚠️ The Copilot **CLI** does not yet support user slash commands — IDEs only.
+Writes to **`.agents/skills/audit-*/SKILL.md`**. In Copilot CLI, run `/skills reload` then
+`/skills info audit-new` to confirm; in VS Code/JetBrains Copilot Chat it's picked up automatically.
 </details>
 
 <details>
 <summary><b>Gemini CLI</b></summary>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/blpsoares/parity-driven-development/main/install.sh | bash -s -- gemini
-# or:  pdd adapt gemini         (add --global for ~/.gemini)
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- gemini
+# or:  pdd adapt gemini         (add --global for ~/.agents/skills)
 ```
 
-Writes to **`.gemini/commands/audit-*.toml`**. Invoke with `/audit-new`. Uses `{{args}}`. Run `/commands reload` after installing.
+Writes to **`.agents/skills/audit-*/SKILL.md`**. Run `/skills reload` after installing (`.agents/skills`
+takes precedence over the older `.gemini/skills`/`.gemini/commands` locations).
 </details>
 
 <details>
