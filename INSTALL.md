@@ -7,7 +7,11 @@ hook-based, so installation just scaffolds the right command files for your agen
 
 ## Fastest path — shell installer (no npm)
 
-Requires `git` and **Node or Bun** (no npm). From your project directory:
+> **Run this inside the project you're refactoring/porting** — the target repo where you'll
+> track parity, **not** a clone of this PDD repo. That target directory is where `.audit/`,
+> `AGENTS.md`, and the agent command files get written.
+
+Requires `git` and **Node or Bun** (no npm). `cd` into your target project first, then:
 
 ```bash
 curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <harness>

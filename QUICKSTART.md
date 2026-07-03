@@ -10,6 +10,9 @@ each step is gated and refuses to advance on weak input, so the framework guides
 
 ## 0 · Install (once per project)
 
+> Run this from **the project you're refactoring/porting** — the target repo whose parity you'll
+> track — not from a clone of PDD itself. `.audit/` and the agent command files get written there.
+
 **Claude Code:**
 ```bash
 /plugin marketplace add blpsoares/parity-driven-development
@@ -18,6 +21,7 @@ claude plugin install pdd@parity-driven-development --scope project
 
 **Any other agent (Codex / Cursor / Copilot / Gemini):**
 ```bash
+cd /path/to/your-target-project
 curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <agent>
 ```
 

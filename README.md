@@ -125,9 +125,12 @@ Codex, Gemini CLI and Copilot CLI have converged on the same skill convention �
 installing for any one of them writes files the other two can read natively too. Cursor keeps its
 own `.cursor/commands/*.md` format.
 
-**Shell installer** (needs `git` + **Node or Bun** — no npm; works with no Claude Code):
+**Shell installer** (needs `git` + **Node or Bun** — no npm; works with no Claude Code). Run it
+from **the project you're refactoring/porting** (the target repo whose parity you're tracking) —
+not from a clone of this PDD repo:
 
 ```bash
+cd /path/to/your-target-project
 curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <codex|cursor|copilot|gemini|all>
 ```
 

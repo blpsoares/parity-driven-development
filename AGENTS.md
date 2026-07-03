@@ -33,7 +33,8 @@ human "yes"; merge is 100% human, only after the target-environment QA approves.
 
 ## Installing the commands per harness
 
-From a project (or add `--global` to install into your home config, e.g. `~/.agents/skills`):
+Run from **the target project** — the repo you're refactoring/porting, not a clone of PDD itself
+(or add `--global` to install into your home config, e.g. `~/.agents/skills`):
 
 ```bash
 pdd adapt codex     # → .agents/skills/audit-*/SKILL.md   (Codex: open /skills, or let it match by description)
