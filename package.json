@@ -15,6 +15,7 @@
     "scripts/ensure-cli.sh",
     "scripts/session-update-check.sh",
     "README.md",
+    "QUICKSTART.md",
     "AGENTS.md",
     "INSTALL.md",
     "CHANGELOG.md",

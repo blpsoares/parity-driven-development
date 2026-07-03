@@ -18,6 +18,9 @@ commands**, and **progressive disclosure** (the cycle teaches itself).
 
 ---
 
+> **New to PDD?** The [**Quickstart**](QUICKSTART.md) walks you from zero to your first verified
+> finding, one command at a time, with a real worked example.
+
 ## Installation
 
 PDD ships as a single-plugin marketplace. Install it into a project:
