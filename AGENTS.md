@@ -34,18 +34,20 @@ human "yes"; merge is 100% human, only after the target-environment QA approves.
 ## Installing the commands per harness
 
 Run from **the target project** — the repo you're refactoring/porting, not a clone of PDD itself
-(or add `--global` to install into your home config, e.g. `~/.agents/skills`):
+(or add `--global` to install into your home config instead):
 
 ```bash
-pdd adapt codex     # → .agents/skills/audit-*/SKILL.md   (Codex: open /skills, or let it match by description)
-pdd adapt gemini    # → .agents/skills/audit-*/SKILL.md   (Gemini CLI: run /skills reload after installing)
-pdd adapt copilot   # → .agents/skills/audit-*/SKILL.md   (Copilot CLI: /skills reload; VS Code/JetBrains: automatic)
-pdd adapt cursor    # → .cursor/commands/audit-*.md       (invoke: /audit-new …)
+pdd adapt claude    # → .claude/skills/audit-*/SKILL.md    (native; the plugin install path is usually simpler — see README)
+pdd adapt codex     # → .agents/skills/audit-*/SKILL.md    (Codex: open /skills, or let it match by description)
+pdd adapt gemini    # → .gemini/skills/audit-*/SKILL.md    (Gemini CLI: run /skills reload after installing)
+pdd adapt copilot   # → .github/skills/audit-*/SKILL.md    (Copilot CLI: /skills reload; VS Code/JetBrains: automatic)
+pdd adapt cursor    # → .cursor/skills/audit-*/SKILL.md    (invoke: /audit-new …)
 ```
 
-Codex, Gemini CLI and Copilot CLI all discover the same `.agents/skills/<name>/SKILL.md`
-convention — installing for one writes files the other two can read too. Cursor keeps its own
-format since it doesn't read `.agents/skills`.
+Each harness discovers skills in its own native directory today — add `--global` to any of the
+above to install into your home config instead (e.g. `~/.cursor/skills`; Copilot's global path is
+`~/.copilot/skills`, not `~/.github`). See `README.md`'s "Install in any agent" section for the
+full per-harness table.
 
 For any other agent: point it at this `AGENTS.md` and the `skills/` directory — the SKILL.md
 bodies are self-contained instructions. When a command takes arguments, pass them where the file

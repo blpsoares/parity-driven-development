@@ -80,6 +80,19 @@ export function reduceMenu(
   return { cursor, checked };
 }
 
+/** Wrap a title in a heavy box-drawing frame, centered, min 40 cols wide. */
+function frameTitle(title: string): string {
+  const width = Math.max(40, title.length + 4);
+  const pad = width - title.length;
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return [
+    "┏" + "━".repeat(width) + "┓",
+    "┃" + " ".repeat(left) + title + " ".repeat(right) + "┃",
+    "┗" + "━".repeat(width) + "┛",
+  ].join("\n");
+}
+
 /** Render the menu frame (pure). */
 export function renderMenu(
   title: string,
@@ -87,7 +100,7 @@ export function renderMenu(
   s: MenuState,
   multi: boolean,
 ): string {
-  const lines = [c.bold(title)];
+  const lines = [c.bold(frameTitle(title)), ""];
   items.forEach((it, i) => {
     const pointer = i === s.cursor ? c.cyan("❯") : " ";
     const box = multi
@@ -98,13 +111,14 @@ export function renderMenu(
         ? c.green("◉")
         : "◯";
     const label = i === s.cursor ? c.bold(it.label) : it.label;
-    lines.push(`${pointer} ${box} ${label}${it.hint ? c.dim("  " + it.hint) : ""}`);
+    lines.push(`  ${pointer} ${box} ${label}${it.hint ? c.dim("  " + it.hint) : ""}`);
   });
+  lines.push("");
   lines.push(
     c.dim(
       multi
-        ? "↑/↓ move · space toggle · a all · enter confirm · esc cancel"
-        : "↑/↓ move · enter select · esc cancel",
+        ? "  ↑/↓ move · space toggle · a all · enter confirm · esc cancel"
+        : "  ↑/↓ move · enter select · esc cancel",
     ),
   );
   return lines.join("\n");

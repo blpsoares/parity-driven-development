@@ -1253,7 +1253,17 @@ function parseSkill(md) {
   const description = (front.match(/description:\s*["']?([\s\S]*?)["']?\s*\n[a-z-]+:/)?.[1] ?? "").replace(/\s+/g, " ").trim();
   return { name, description, body };
 }
-var AGENTS_SKILLS_HARNESSES = /* @__PURE__ */ new Set(["codex", "gemini", "copilot"]);
+var PROJECT_SKILL_DIR = {
+  claude: ".claude/skills",
+  codex: ".agents/skills",
+  cursor: ".cursor/skills",
+  copilot: ".github/skills",
+  gemini: ".gemini/skills"
+};
+var GLOBAL_SKILL_DIR = {
+  ...PROJECT_SKILL_DIR,
+  copilot: ".copilot/skills"
+};
 var NATURAL_ARGS = "the arguments the user typed after the command";
 function withArgs(body) {
   return body.split("$ARGUMENTS").join(NATURAL_ARGS);
@@ -1261,29 +1271,23 @@ function withArgs(body) {
 function deClaude(s) {
   return s.replace(/\bClaude Code\b/g, "the agent").replace(/\bClaude\b/g, "the agent");
 }
-function renderSkillFor(harness, skill) {
-  const body = deClaude(withArgs(skill.body));
-  const description = deClaude(skill.description);
-  if (AGENTS_SKILLS_HARNESSES.has(harness)) {
-    return {
-      relPath: `.agents/skills/${skill.name}/SKILL.md`,
-      content: `---
+function renderSkillFor(harness, skill, global) {
+  const body = harness === "claude" ? skill.body : deClaude(withArgs(skill.body));
+  const description = harness === "claude" ? skill.description : deClaude(skill.description);
+  const dir = global ? GLOBAL_SKILL_DIR[harness] : PROJECT_SKILL_DIR[harness];
+  return {
+    relPath: `${dir}/${skill.name}/SKILL.md`,
+    content: `---
 name: ${skill.name}
 description: ${description}
 ---
 
 ${body}
 `
-    };
-  }
-  return { relPath: `commands/${skill.name}.md`, content: body + "\n" };
+  };
 }
-function baseDirFor(harness, projectRoot, global) {
-  const home = homedir();
-  if (AGENTS_SKILLS_HARNESSES.has(harness)) {
-    return global ? home : projectRoot;
-  }
-  return global ? join2(home, ".cursor") : join2(projectRoot, ".cursor");
+function baseDirFor(projectRoot, global) {
+  return global ? homedir() : projectRoot;
 }
 function readSkills(skillsDir) {
   if (!existsSync2(skillsDir)) return [];
@@ -1313,6 +1317,8 @@ function rulesTargetFor(harness) {
       return { relPath: "AGENTS.md", mode: "block" };
     case "gemini":
       return { relPath: "GEMINI.md", mode: "block" };
+    case "claude":
+      return null;
   }
 }
 function rulesFileContent(harness) {
@@ -1345,16 +1351,18 @@ ${PDD_END}`;
   return (existing.trim() ? existing.trimEnd() + "\n\n" : "") + block + "\n";
 }
 function writeRules(harness, projectRoot) {
-  const { relPath, mode } = rulesTargetFor(harness);
-  const target = join2(projectRoot, relPath);
-  mkdirSync(join2(target, ".."), { recursive: true });
+  const target = rulesTargetFor(harness);
+  if (!target) return null;
+  const { relPath, mode } = target;
+  const targetPath = join2(projectRoot, relPath);
+  mkdirSync(join2(targetPath, ".."), { recursive: true });
   if (mode === "overwrite") {
-    writeFileSync(target, rulesFileContent(harness));
+    writeFileSync(targetPath, rulesFileContent(harness));
   } else {
-    const existing = existsSync2(target) ? readFileSync2(target, "utf8") : "";
-    writeFileSync(target, upsertBlock(existing, rulesBody()));
+    const existing = existsSync2(targetPath) ? readFileSync2(targetPath, "utf8") : "";
+    writeFileSync(targetPath, upsertBlock(existing, rulesBody()));
   }
-  return target;
+  return targetPath;
 }
 function assertSafeProjectRoot(projectRoot, global) {
   if (global) return;
@@ -1367,16 +1375,19 @@ cd into your project first, or pass --global if you really want a global install
 }
 function adaptAll(harness, opts) {
   assertSafeProjectRoot(opts.projectRoot, opts.global);
-  const base = baseDirFor(harness, opts.projectRoot, opts.global);
+  const base = baseDirFor(opts.projectRoot, opts.global);
   const written = [];
   for (const skill of readSkills(opts.skillsDir)) {
-    const { relPath, content } = renderSkillFor(harness, skill);
+    const { relPath, content } = renderSkillFor(harness, skill, opts.global);
     const target = join2(base, relPath);
     mkdirSync(join2(target, ".."), { recursive: true });
     writeFileSync(target, content);
     written.push(target);
   }
-  if (opts.rules !== false) written.push(writeRules(harness, opts.projectRoot));
+  if (opts.rules !== false) {
+    const rulePath = writeRules(harness, opts.projectRoot);
+    if (rulePath) written.push(rulePath);
+  }
   return written;
 }
 
@@ -1437,17 +1448,29 @@ function reduceMenu(s, key, count, multi) {
   }
   return { cursor, checked };
 }
+function frameTitle(title) {
+  const width = Math.max(40, title.length + 4);
+  const pad = width - title.length;
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return [
+    "\u250F" + "\u2501".repeat(width) + "\u2513",
+    "\u2503" + " ".repeat(left) + title + " ".repeat(right) + "\u2503",
+    "\u2517" + "\u2501".repeat(width) + "\u251B"
+  ].join("\n");
+}
 function renderMenu(title, items, s, multi) {
-  const lines = [c2.bold(title)];
+  const lines = [c2.bold(frameTitle(title)), ""];
   items.forEach((it, i) => {
     const pointer = i === s.cursor ? c2.cyan("\u276F") : " ";
     const box = multi ? s.checked.has(i) ? c2.green("\u25C9") : "\u25EF" : i === s.cursor ? c2.green("\u25C9") : "\u25EF";
     const label = i === s.cursor ? c2.bold(it.label) : it.label;
-    lines.push(`${pointer} ${box} ${label}${it.hint ? c2.dim("  " + it.hint) : ""}`);
+    lines.push(`  ${pointer} ${box} ${label}${it.hint ? c2.dim("  " + it.hint) : ""}`);
   });
+  lines.push("");
   lines.push(
     c2.dim(
-      multi ? "\u2191/\u2193 move \xB7 space toggle \xB7 a all \xB7 enter confirm \xB7 esc cancel" : "\u2191/\u2193 move \xB7 enter select \xB7 esc cancel"
+      multi ? "  \u2191/\u2193 move \xB7 space toggle \xB7 a all \xB7 enter confirm \xB7 esc cancel" : "  \u2191/\u2193 move \xB7 enter select \xB7 esc cancel"
     )
   );
   return lines.join("\n");
@@ -1603,6 +1626,8 @@ function findUpDir(start, marker) {
 }
 var PLUGIN_ROOT = findUpDir(HERE, "skills");
 var SKILLS_DIR = join4(PLUGIN_ROOT, "skills");
+var IS_GIT_CLONE = existsSync4(join4(PLUGIN_ROOT, ".git"));
+var PLUGIN_INSTALL_TIP = "\u{1F4A1} Running from a git clone. For native skills + auto-update in Claude Code:\n   claude plugin marketplace add blpsoares/parity-driven-development\n   claude plugin install pdd@parity-driven-development\n";
 function whichBin(bin) {
   const sep = process.platform === "win32" ? ";" : ":";
   const exts = process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"] : [""];
@@ -1666,6 +1691,7 @@ function detectHarnesses(all, projectRoot) {
   const home = process.env.HOME ?? "";
   const has = (bin, dir) => Boolean(whichBin(bin)) || dir !== "" && existsSync4(dir);
   const map = {
+    claude: has("claude", join4(home, ".claude")),
     codex: has("codex", join4(home, ".codex")),
     cursor: has("cursor", join4(home, ".cursor")),
     gemini: has("gemini", join4(home, ".gemini")),
@@ -1675,10 +1701,9 @@ function detectHarnesses(all, projectRoot) {
   return all.filter((h) => map[h]);
 }
 async function runUpdate() {
-  const isGitClone = existsSync4(join4(PLUGIN_ROOT, ".git"));
-  if (!isGitClone) {
+  if (!IS_GIT_CLONE) {
     process.stdout.write(
-      "This PDD is installed as a Claude Code plugin. Update it with:\n  claude plugin update pdd@parity-driven-development\nThen run 'pdd init' to refresh any Codex/Cursor/Copilot/Gemini command files.\n"
+      "This PDD is installed as a Claude Code plugin. Update it with:\n  claude plugin update pdd@parity-driven-development\nThen run 'pdd init' to refresh any Codex/Cursor/Copilot/Gemini/Claude command files.\n"
     );
     return;
   }
@@ -1691,7 +1716,7 @@ async function runUpdate() {
     process.stdout.write("git pull failed \u2014 resolve it and retry.\n");
     return;
   }
-  const all = ["codex", "cursor", "copilot", "gemini"];
+  const all = ["claude", "codex", "cursor", "copilot", "gemini"];
   const skillsDir = join4(PLUGIN_ROOT, "skills");
   const detected = detectHarnesses(all, process.cwd());
   for (const harness of detected) {
@@ -1703,27 +1728,26 @@ async function runUpdate() {
 `);
 }
 async function runInit(args) {
-  const all = ["codex", "cursor", "copilot", "gemini"];
+  const all = ["claude", "codex", "cursor", "copilot", "gemini"];
   const projectRoot = process.cwd();
   const skillsDir = SKILLS_DIR;
   const explicit = args.slice(1).filter((a) => all.includes(a));
   const detected = detectHarnesses(all, projectRoot);
+  if (IS_GIT_CLONE) process.stdout.write(PLUGIN_INSTALL_TIP + "\n");
   let targets;
   let global = args.includes("--global");
   if (explicit.length > 0 || !process.stdin.isTTY || args.includes("--global")) {
     targets = explicit.length > 0 ? explicit : detected;
     if (targets.length === 0) {
       process.stdout.write(
-        "No agent detected. Try: pdd init codex | cursor | copilot | gemini\n"
+        "No agent detected. Try: pdd init claude | codex | cursor | copilot | gemini\n"
       );
       return;
     }
   } else {
-    const items = all.map((h) => ({ label: h, hint: detected.includes(h) ? "detected" : "" }));
-    const preChecked = all.map((h, i) => detected.includes(h) ? i : -1).filter((i) => i >= 0);
+    const items = all.map((h) => ({ label: h }));
     const picked = await runMenu("Install PDD commands for which agents?", items, {
-      multi: true,
-      preChecked
+      multi: true
     });
     if (!picked || picked.length === 0) {
       process.stdout.write("Cancelled \u2014 nothing installed.\n");
@@ -1771,7 +1795,7 @@ async function main(argv) {
     return;
   }
   if (command === "adapt") {
-    const harnesses = ["codex", "cursor", "copilot", "gemini"];
+    const harnesses = ["claude", "codex", "cursor", "copilot", "gemini"];
     const harness = args[1];
     if (!harnesses.includes(harness)) {
       process.stdout.write(
@@ -1798,7 +1822,7 @@ Generates PDD slash-command / prompt files for that agent from the canonical ski
   }
   if (command !== "board" && command !== "tui" && command !== "prune") {
     process.stdout.write(
-      "pdd \u2014 Parity-Driven Development dashboard\n\nUsage:\n  pdd                       Interactive, navigable dashboard (default)\n  pdd tui [path]            Interactive dashboard (\u2191/\u2193 navigate, \u2192/enter expand, q quit)\n  pdd board [path]          Print a static snapshot once\n  pdd board --watch [path]  Static auto-refresh on .audit changes\n  pdd prune [path]          Remove stale/orphaned activity records\n  pdd init [harness...]     Install PDD commands into detected agents (or the ones given)\n  pdd install [harness...]  Alias for `pdd init`\n  pdd adapt <harness>       Generate command files for one of Codex/Cursor/Copilot/Gemini\n  pdd check                 Check whether a newer PDD version is available\n  pdd update                Update PDD (git clone) or show how (Claude plugin)\n  pdd version               Print the installed version\n\nWith no [path], pdd walks up from the current directory to find .audit.\n"
+      "pdd \u2014 Parity-Driven Development dashboard\n\nUsage:\n  pdd                       Interactive, navigable dashboard (default)\n  pdd tui [path]            Interactive dashboard (\u2191/\u2193 navigate, \u2192/enter expand, q quit)\n  pdd board [path]          Print a static snapshot once\n  pdd board --watch [path]  Static auto-refresh on .audit changes\n  pdd prune [path]          Remove stale/orphaned activity records\n  pdd init [harness...]     Install PDD commands into detected agents (or the ones given)\n  pdd install [harness...]  Alias for `pdd init`\n  pdd adapt <harness>       Generate command files for one of Claude/Codex/Cursor/Copilot/Gemini\n  pdd check                 Check whether a newer PDD version is available\n  pdd update                Update PDD (git clone) or show how (Claude plugin)\n  pdd version               Print the installed version\n\nWith no [path], pdd walks up from the current directory to find .audit.\n"
     );
     process.exitCode = 1;
     return;

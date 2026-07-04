@@ -1,7 +1,9 @@
 // PDD 2.0 — tests for the cross-harness adapter (pure renderers).
 
 import { test, expect } from "bun:test";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import {
   parseSkill,
   renderSkillFor,
@@ -10,6 +12,7 @@ import {
   rulesFileContent,
   upsertBlock,
   assertSafeProjectRoot,
+  adaptAll,
 } from "./adapt";
 
 const SAMPLE = `---
@@ -37,39 +40,42 @@ test("parseSkill extracts name, description and body", () => {
   expect(s.body).not.toContain("disable-model-invocation"); // frontmatter stripped
 });
 
-test("codex writes the shared .agents/skills/<name>/SKILL.md convention", () => {
-  const out = renderSkillFor("codex", parseSkill(SAMPLE));
+test("codex writes its own .agents/skills/<name>/SKILL.md convention", () => {
+  const out = renderSkillFor("codex", parseSkill(SAMPLE), false);
   expect(out.relPath).toBe(".agents/skills/audit-new/SKILL.md");
   expect(out.content).toMatch(/^---\nname: audit-new\ndescription:/);
   expect(out.content).not.toContain("$ARGUMENTS");
 });
 
-test("gemini writes the same shared .agents/skills convention as codex", () => {
-  const out = renderSkillFor("gemini", parseSkill(SAMPLE));
-  expect(out.relPath).toBe(".agents/skills/audit-new/SKILL.md");
+test("cursor writes .cursor/skills/<name>/SKILL.md (own convention, not .agents)", () => {
+  const out = renderSkillFor("cursor", parseSkill(SAMPLE), false);
+  expect(out.relPath).toBe(".cursor/skills/audit-new/SKILL.md");
   expect(out.content).not.toContain("$ARGUMENTS");
 });
 
-test("copilot writes the same shared .agents/skills convention", () => {
-  const out = renderSkillFor("copilot", parseSkill(SAMPLE));
-  expect(out.relPath).toBe(".agents/skills/audit-new/SKILL.md");
-  expect(out.content).toMatch(/^---\nname: audit-new\ndescription:/);
+test("gemini writes .gemini/skills/<name>/SKILL.md", () => {
+  const out = renderSkillFor("gemini", parseSkill(SAMPLE), false);
+  expect(out.relPath).toBe(".gemini/skills/audit-new/SKILL.md");
 });
 
-test("cursor writes commands/<name>.md and rewrites the arg token", () => {
-  const out = renderSkillFor("cursor", parseSkill(SAMPLE));
-  expect(out.relPath).toBe("commands/audit-new.md");
-  expect(out.content).not.toContain("$ARGUMENTS");
+test("copilot writes .github/skills/<name>/SKILL.md in a project, .copilot/skills/ globally", () => {
+  const project = renderSkillFor("copilot", parseSkill(SAMPLE), false);
+  expect(project.relPath).toBe(".github/skills/audit-new/SKILL.md");
+  const global = renderSkillFor("copilot", parseSkill(SAMPLE), true);
+  expect(global.relPath).toBe(".copilot/skills/audit-new/SKILL.md");
 });
 
-test("baseDirFor honors global vs project for all .agents/skills harnesses", () => {
-  // Codex/Gemini/Copilot all discover .agents/skills at the project root, or
-  // the home-global ~/.agents/skills — none of them are home-only anymore.
-  expect(baseDirFor("codex", "/proj", false)).toBe("/proj");
-  expect(baseDirFor("codex", "/proj", true)).not.toContain("/proj");
-  expect(baseDirFor("copilot", "/proj", false)).toBe("/proj");
-  expect(baseDirFor("cursor", "/proj", false)).toBe("/proj/.cursor");
-  expect(baseDirFor("gemini", "/proj", true)).not.toContain("/proj");
+test("claude writes .claude/skills/<name>/SKILL.md and keeps $ARGUMENTS + 'Claude' mentions", () => {
+  const skill = parseSkill(SAMPLE.replace("$ARGUMENTS", "$ARGUMENTS between the dev and Claude"));
+  const out = renderSkillFor("claude", skill, false);
+  expect(out.relPath).toBe(".claude/skills/audit-new/SKILL.md");
+  expect(out.content).toContain("$ARGUMENTS");
+  expect(out.content).toContain("Claude");
+});
+
+test("baseDirFor is projectRoot for project scope, homedir() for global — no harness-specific logic needed", () => {
+  expect(baseDirFor("/proj", false)).toBe("/proj");
+  expect(baseDirFor("/proj", true)).toBe(homedir());
 });
 
 test("assertSafeProjectRoot refuses $HOME without --global", () => {
@@ -82,7 +88,7 @@ test("assertSafeProjectRoot refuses $HOME without --global", () => {
 test("adapted commands are agent-neutral (no 'Claude' leakage)", () => {
   const skill = parseSkill(SAMPLE.replace("$ARGUMENTS", "$ARGUMENTS between the dev and Claude"));
   for (const h of ["codex", "cursor", "copilot", "gemini"] as const) {
-    expect(renderSkillFor(h, skill).content).not.toContain("Claude");
+    expect(renderSkillFor(h, skill, false).content).not.toContain("Claude");
   }
 });
 
@@ -91,6 +97,10 @@ test("rulesTargetFor picks the right file + mode per harness", () => {
   expect(rulesTargetFor("copilot").relPath).toBe(".github/instructions/pdd.instructions.md");
   expect(rulesTargetFor("codex")).toEqual({ relPath: "AGENTS.md", mode: "block" });
   expect(rulesTargetFor("gemini").mode).toBe("block");
+});
+
+test("rulesTargetFor returns null for claude — the plugin's session hook already covers update-awareness", () => {
+  expect(rulesTargetFor("claude")).toBeNull();
 });
 
 test("rulesFileContent has the required frontmatter and update directive", () => {
@@ -111,4 +121,27 @@ test("upsertBlock inserts once and is idempotent on re-run", () => {
   expect(twice.match(/PDD:BEGIN/g)?.length).toBe(1);
   expect(twice).toContain("BODY-B");
   expect(twice).not.toContain("BODY-A");
+});
+
+test("adaptAll writes no rules file for claude, only the skill files", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pdd-adapt-test-"));
+  try {
+    const skillsDir = join(dir, "skills", "sample-skill");
+    mkdirSync(skillsDir, { recursive: true });
+    writeFileSync(join(skillsDir, "SKILL.md"), SAMPLE);
+    const projectRoot = join(dir, "project");
+    mkdirSync(projectRoot, { recursive: true });
+
+    const written = adaptAll("claude", {
+      skillsDir: join(dir, "skills"),
+      projectRoot,
+      global: false,
+    });
+
+    expect(written).toEqual([join(projectRoot, ".claude/skills/audit-new/SKILL.md")]);
+    expect(existsSync(join(projectRoot, "CLAUDE.md"))).toBe(false);
+    expect(existsSync(join(projectRoot, "AGENTS.md"))).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
