@@ -45,6 +45,16 @@ function findUpDir(start: string, marker: string): string {
 const PLUGIN_ROOT = findUpDir(HERE, "skills");
 const SKILLS_DIR = join(PLUGIN_ROOT, "skills");
 
+// True when running from a plain git clone (not the Claude Code plugin
+// cache) — used to nudge users toward the plugin install path, which gets
+// native skills + auto-update for free instead of manually adapted files.
+const IS_GIT_CLONE = existsSync(join(PLUGIN_ROOT, ".git"));
+
+const PLUGIN_INSTALL_TIP =
+  "💡 Running from a git clone. For native skills + auto-update in Claude Code:\n" +
+  "   claude plugin marketplace add blpsoares/parity-driven-development\n" +
+  "   claude plugin install pdd@parity-driven-development\n";
+
 /** Portable `which`: is `bin` an executable on PATH? (replaces Bun.which). */
 function whichBin(bin: string): boolean {
   const sep = process.platform === "win32" ? ";" : ":";
@@ -130,6 +140,7 @@ function detectHarnesses(all: Harness[], projectRoot: string): Harness[] {
   const has = (bin: string, dir: string) =>
     Boolean(whichBin(bin)) || (dir !== "" && existsSync(dir));
   const map: Record<Harness, boolean> = {
+    claude: has("claude", join(home, ".claude")),
     codex: has("codex", join(home, ".codex")),
     cursor: has("cursor", join(home, ".cursor")),
     gemini: has("gemini", join(home, ".gemini")),
@@ -141,13 +152,12 @@ function detectHarnesses(all: Harness[], projectRoot: string): Harness[] {
 
 /** Self-update: `git pull` a clone install and re-adapt; else guide the user. */
 async function runUpdate(): Promise<void> {
-  const isGitClone = existsSync(join(PLUGIN_ROOT, ".git"));
-  if (!isGitClone) {
+  if (!IS_GIT_CLONE) {
     // Running from the Claude Code plugin cache (managed by Claude).
     process.stdout.write(
       "This PDD is installed as a Claude Code plugin. Update it with:\n" +
         "  claude plugin update pdd@parity-driven-development\n" +
-        "Then run 'pdd init' to refresh any Codex/Cursor/Copilot/Gemini command files.\n",
+        "Then run 'pdd init' to refresh any Codex/Cursor/Copilot/Gemini/Claude command files.\n",
     );
     return;
   }
@@ -161,7 +171,7 @@ async function runUpdate(): Promise<void> {
     return;
   }
   // Re-generate command files for any agents already present.
-  const all: Harness[] = ["codex", "cursor", "copilot", "gemini"];
+  const all: Harness[] = ["claude", "codex", "cursor", "copilot", "gemini"];
   const skillsDir = join(PLUGIN_ROOT, "skills");
   const detected = detectHarnesses(all, process.cwd());
   for (const harness of detected) {
@@ -173,11 +183,13 @@ async function runUpdate(): Promise<void> {
 
 /** Install PDD commands — interactive (specify-init style) when run in a TTY. */
 async function runInit(args: string[]): Promise<void> {
-  const all: Harness[] = ["codex", "cursor", "copilot", "gemini"];
+  const all: Harness[] = ["claude", "codex", "cursor", "copilot", "gemini"];
   const projectRoot = process.cwd();
   const skillsDir = SKILLS_DIR;
   const explicit = args.slice(1).filter((a): a is Harness => all.includes(a as Harness));
   const detected = detectHarnesses(all, projectRoot);
+
+  if (IS_GIT_CLONE) process.stdout.write(PLUGIN_INSTALL_TIP + "\n");
 
   let targets: Harness[];
   let global = args.includes("--global");
@@ -187,17 +199,15 @@ async function runInit(args: string[]): Promise<void> {
     targets = explicit.length > 0 ? explicit : detected;
     if (targets.length === 0) {
       process.stdout.write(
-        "No agent detected. Try: pdd init codex | cursor | copilot | gemini\n",
+        "No agent detected. Try: pdd init claude | codex | cursor | copilot | gemini\n",
       );
       return;
     }
   } else {
-    // Interactive.
-    const items = all.map((h) => ({ label: h, hint: detected.includes(h) ? "detected" : "" }));
-    const preChecked = all.map((h, i) => (detected.includes(h) ? i : -1)).filter((i) => i >= 0);
+    // Interactive — nothing pre-checked; the user picks explicitly every time.
+    const items = all.map((h) => ({ label: h }));
     const picked = await runMenu("Install PDD commands for which agents?", items, {
       multi: true,
-      preChecked,
     });
     if (!picked || picked.length === 0) {
       process.stdout.write("Cancelled — nothing installed.\n");
@@ -252,7 +262,7 @@ async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "adapt") {
-    const harnesses: Harness[] = ["codex", "cursor", "copilot", "gemini"];
+    const harnesses: Harness[] = ["claude", "codex", "cursor", "copilot", "gemini"];
     const harness = args[1] as Harness;
     if (!harnesses.includes(harness)) {
       process.stdout.write(
@@ -286,7 +296,7 @@ async function main(argv: string[]): Promise<void> {
         "  pdd prune [path]          Remove stale/orphaned activity records\n" +
         "  pdd init [harness...]     Install PDD commands into detected agents (or the ones given)\n" +
         "  pdd install [harness...]  Alias for `pdd init`\n" +
-        "  pdd adapt <harness>       Generate command files for one of Codex/Cursor/Copilot/Gemini\n" +
+        "  pdd adapt <harness>       Generate command files for one of Claude/Codex/Cursor/Copilot/Gemini\n" +
         "  pdd check                 Check whether a newer PDD version is available\n" +
         "  pdd update                Update PDD (git clone) or show how (Claude plugin)\n" +
         "  pdd version               Print the installed version\n\n" +
