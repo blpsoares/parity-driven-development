@@ -25,18 +25,29 @@ export function parseSkill(md: string): Skill {
   return { name, description, body };
 }
 
-export type Harness = "codex" | "cursor" | "copilot" | "gemini";
+export type Harness = "claude" | "codex" | "cursor" | "copilot" | "gemini";
 
 /**
- * Codex CLI, Gemini CLI and Copilot CLI all discover the same convergent
- * convention: a `.agents/skills/<name>/SKILL.md` directory at the project
- * root (each also accepts a home-global `~/.agents/skills/`). Codex's older
- * `~/.codex/prompts` custom-prompt mechanism is deprecated by OpenAI in favor
- * of this. None of the three support literal argument substitution for
- * skills — they're picked from a menu or matched by description — so their
- * bodies use natural-language phrasing instead of a `$ARGUMENTS` token.
+ * Each harness discovers skills in its own convention today (verified
+ * against each vendor's docs, jul/2026): Codex CLI popularized
+ * `.agents/skills/`, but Cursor/Copilot/Gemini/Claude each also ship (and
+ * document as primary) their own harness-named directory. Copilot is the
+ * only one whose global (home-scoped) directory name differs from its
+ * project directory name — `.github/skills` in a repo, `.copilot/skills` in
+ * `$HOME` — because `~/.github` isn't a thing Copilot reads.
  */
-const AGENTS_SKILLS_HARNESSES: ReadonlySet<Harness> = new Set(["codex", "gemini", "copilot"]);
+const PROJECT_SKILL_DIR: Record<Harness, string> = {
+  claude: ".claude/skills",
+  codex: ".agents/skills",
+  cursor: ".cursor/skills",
+  copilot: ".github/skills",
+  gemini: ".gemini/skills",
+};
+
+const GLOBAL_SKILL_DIR: Record<Harness, string> = {
+  ...PROJECT_SKILL_DIR,
+  copilot: ".copilot/skills",
+};
 
 const NATURAL_ARGS = "the arguments the user typed after the command";
 
@@ -53,28 +64,22 @@ function deClaude(s: string): string {
 export function renderSkillFor(
   harness: Harness,
   skill: Skill,
+  global: boolean,
 ): { relPath: string; content: string } {
-  const body = deClaude(withArgs(skill.body));
-  const description = deClaude(skill.description);
-  if (AGENTS_SKILLS_HARNESSES.has(harness)) {
-    return {
-      relPath: `.agents/skills/${skill.name}/SKILL.md`,
-      content: `---\nname: ${skill.name}\ndescription: ${description}\n---\n\n${body}\n`,
-    };
-  }
-  // cursor: its own commands convention, not the .agents/skills standard.
-  return { relPath: `commands/${skill.name}.md`, content: body + "\n" };
+  // Claude Code is the skill's native home — it already understands
+  // $ARGUMENTS and "Claude"/"Claude Code" mentions, so leave the body as-is.
+  const body = harness === "claude" ? skill.body : deClaude(withArgs(skill.body));
+  const description = harness === "claude" ? skill.description : deClaude(skill.description);
+  const dir = global ? GLOBAL_SKILL_DIR[harness] : PROJECT_SKILL_DIR[harness];
+  return {
+    relPath: `${dir}/${skill.name}/SKILL.md`,
+    content: `---\nname: ${skill.name}\ndescription: ${description}\n---\n\n${body}\n`,
+  };
 }
 
 /** Base directory a harness writes into (global = user home, else the project root). */
-export function baseDirFor(harness: Harness, projectRoot: string, global: boolean): string {
-  const home = homedir();
-  if (AGENTS_SKILLS_HARNESSES.has(harness)) {
-    // relPath already includes .agents/skills/<name>/SKILL.md
-    return global ? home : projectRoot;
-  }
-  // cursor
-  return global ? join(home, ".cursor") : join(projectRoot, ".cursor");
+export function baseDirFor(projectRoot: string, global: boolean): string {
+  return global ? homedir() : projectRoot;
 }
 
 /** Read every canonical skill from a `skills/` directory. */
@@ -176,10 +181,10 @@ export function adaptAll(
   opts: { skillsDir: string; projectRoot: string; global: boolean; rules?: boolean },
 ): string[] {
   assertSafeProjectRoot(opts.projectRoot, opts.global);
-  const base = baseDirFor(harness, opts.projectRoot, opts.global);
+  const base = baseDirFor(opts.projectRoot, opts.global);
   const written: string[] = [];
   for (const skill of readSkills(opts.skillsDir)) {
-    const { relPath, content } = renderSkillFor(harness, skill);
+    const { relPath, content } = renderSkillFor(harness, skill, opts.global);
     const target = join(base, relPath);
     mkdirSync(join(target, ".."), { recursive: true });
     writeFileSync(target, content);
