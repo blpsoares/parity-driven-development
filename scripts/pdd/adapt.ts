@@ -108,10 +108,11 @@ export function rulesBody(): string {
   ].join("\n");
 }
 
-/** Where the always-on rule goes for a harness, and how to write it. */
+/** Where the always-on rule goes for a harness, and how to write it. Claude
+ * gets none — the plugin's session hook already provides update-awareness. */
 export function rulesTargetFor(
   harness: Harness,
-): { relPath: string; mode: "overwrite" | "block" } {
+): { relPath: string; mode: "overwrite" | "block" } | null {
   switch (harness) {
     case "cursor":
       return { relPath: ".cursor/rules/pdd.mdc", mode: "overwrite" };
@@ -121,6 +122,8 @@ export function rulesTargetFor(
       return { relPath: "AGENTS.md", mode: "block" };
     case "gemini":
       return { relPath: "GEMINI.md", mode: "block" };
+    case "claude":
+      return null;
   }
 }
 
@@ -145,18 +148,21 @@ export function upsertBlock(existing: string, body: string): string {
   return (existing.trim() ? existing.trimEnd() + "\n\n" : "") + block + "\n";
 }
 
-/** Write the always-on rule for a harness into the project. Returns its path. */
-export function writeRules(harness: Harness, projectRoot: string): string {
-  const { relPath, mode } = rulesTargetFor(harness);
-  const target = join(projectRoot, relPath);
-  mkdirSync(join(target, ".."), { recursive: true });
+/** Write the always-on rule for a harness into the project. Returns its
+ * path, or null if this harness doesn't need one (see rulesTargetFor). */
+export function writeRules(harness: Harness, projectRoot: string): string | null {
+  const target = rulesTargetFor(harness);
+  if (!target) return null;
+  const { relPath, mode } = target;
+  const targetPath = join(projectRoot, relPath);
+  mkdirSync(join(targetPath, ".."), { recursive: true });
   if (mode === "overwrite") {
-    writeFileSync(target, rulesFileContent(harness));
+    writeFileSync(targetPath, rulesFileContent(harness));
   } else {
-    const existing = existsSync(target) ? readFileSync(target, "utf8") : "";
-    writeFileSync(target, upsertBlock(existing, rulesBody()));
+    const existing = existsSync(targetPath) ? readFileSync(targetPath, "utf8") : "";
+    writeFileSync(targetPath, upsertBlock(existing, rulesBody()));
   }
-  return target;
+  return targetPath;
 }
 
 /**
@@ -190,6 +196,9 @@ export function adaptAll(
     writeFileSync(target, content);
     written.push(target);
   }
-  if (opts.rules !== false) written.push(writeRules(harness, opts.projectRoot));
+  if (opts.rules !== false) {
+    const rulePath = writeRules(harness, opts.projectRoot);
+    if (rulePath) written.push(rulePath);
+  }
   return written;
 }

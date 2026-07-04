@@ -1,7 +1,9 @@
 // PDD 2.0 — tests for the cross-harness adapter (pure renderers).
 
 import { test, expect } from "bun:test";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import {
   parseSkill,
   renderSkillFor,
@@ -10,6 +12,7 @@ import {
   rulesFileContent,
   upsertBlock,
   assertSafeProjectRoot,
+  adaptAll,
 } from "./adapt";
 
 const SAMPLE = `---
@@ -96,6 +99,10 @@ test("rulesTargetFor picks the right file + mode per harness", () => {
   expect(rulesTargetFor("gemini").mode).toBe("block");
 });
 
+test("rulesTargetFor returns null for claude — the plugin's session hook already covers update-awareness", () => {
+  expect(rulesTargetFor("claude")).toBeNull();
+});
+
 test("rulesFileContent has the required frontmatter and update directive", () => {
   expect(rulesFileContent("cursor")).toContain("alwaysApply: true");
   expect(rulesFileContent("copilot")).toContain('applyTo: "**"');
@@ -114,4 +121,27 @@ test("upsertBlock inserts once and is idempotent on re-run", () => {
   expect(twice.match(/PDD:BEGIN/g)?.length).toBe(1);
   expect(twice).toContain("BODY-B");
   expect(twice).not.toContain("BODY-A");
+});
+
+test("adaptAll writes no rules file for claude, only the skill files", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pdd-adapt-test-"));
+  try {
+    const skillsDir = join(dir, "skills", "sample-skill");
+    mkdirSync(skillsDir, { recursive: true });
+    writeFileSync(join(skillsDir, "SKILL.md"), SAMPLE);
+    const projectRoot = join(dir, "project");
+    mkdirSync(projectRoot, { recursive: true });
+
+    const written = adaptAll("claude", {
+      skillsDir: join(dir, "skills"),
+      projectRoot,
+      global: false,
+    });
+
+    expect(written).toEqual([join(projectRoot, ".claude/skills/audit-new/SKILL.md")]);
+    expect(existsSync(join(projectRoot, "CLAUDE.md"))).toBe(false);
+    expect(existsSync(join(projectRoot, "AGENTS.md"))).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
