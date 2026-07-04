@@ -3,6 +3,21 @@
 All notable changes to PDD are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- **`claude` harness in `pdd init`/`pdd adapt`.** Generates `.claude/skills/<name>/SKILL.md` for
+  projects not installed via the Claude Code plugin. The interactive `pdd init` menu now lists all
+  five harnesses (claude/codex/cursor/copilot/gemini) unselected by default, and nudges toward the
+  native plugin install path (`claude plugin install pdd@parity-driven-development`) when running
+  from a git clone.
+
+### Changed
+- **Each harness now writes to its own native skill directory** instead of sharing a single
+  `.agents/skills/` convention — `.claude/skills/`, `.agents/skills/` (Codex), `.cursor/skills/`,
+  `.github/skills/`/`.copilot/skills/` (Copilot, project vs. global), `.gemini/skills/`. See
+  `README.md`'s "Install in any agent" section for the full table.
+
 ## [2.1.0]
 
 ### Added

@@ -120,10 +120,9 @@ PDD's method (`.audit/`) and the `pdd` CLI are **harness-agnostic** — only the
 registers slash commands differs. PDD is command-based (like `specify init`), not hook-based, so
 installing just scaffolds the right command files.
 
-Codex, Gemini CLI and Copilot CLI have converged on the same skill convention —
-`.agents/skills/<name>/SKILL.md` at the project root, or `~/.agents/skills/` globally — so
-installing for any one of them writes files the other two can read natively too. Cursor keeps its
-own `.cursor/commands/*.md` format.
+Each harness writes to its own native skill directory today (`.claude/skills/`, `.agents/skills/`
+for Codex, `.cursor/skills/`, `.github/skills/` for Copilot, `.gemini/skills/` for Gemini) —
+see the per-agent sections below for exact paths, including `--global` equivalents.
 
 **Shell installer** (needs `git` + **Node or Bun** — no npm; works with no Claude Code). Run it
 from **the project you're refactoring/porting** (the target repo whose parity you're tracking) —
@@ -131,7 +130,7 @@ not from a clone of this PDD repo:
 
 ```bash
 cd /path/to/your-target-project
-curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <codex|cursor|copilot|gemini|all>
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <claude|codex|cursor|copilot|gemini|all>
 ```
 
 Already have the CLI? **`pdd init`** (alias: `pdd install`) opens an interactive picker
@@ -171,8 +170,9 @@ curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cursor
 # or:  pdd adapt cursor        (add --global for ~/.cursor)
 ```
 
-Writes to **`.cursor/commands/audit-*.md`** in the project (committable, shared with your team).
-Invoke with `/audit-new`. Cursor doesn't read the `.agents/skills` convention the other three share.
+Writes to **`.cursor/skills/audit-*/SKILL.md`** in the project (committable, shared with your
+team; add `--global` for `~/.cursor/skills`). Invoke with `/audit-new`, or just describe the task —
+Cursor matches skills by description too.
 </details>
 
 <details>
@@ -180,11 +180,13 @@ Invoke with `/audit-new`. Cursor doesn't read the `.agents/skills` convention th
 
 ```bash
 curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- copilot
-# or:  pdd adapt copilot        (add --global for ~/.agents/skills)
+# or:  pdd adapt copilot        (add --global for ~/.copilot/skills)
 ```
 
-Writes to **`.agents/skills/audit-*/SKILL.md`**. In Copilot CLI, run `/skills reload` then
-`/skills info audit-new` to confirm; in VS Code/JetBrains Copilot Chat it's picked up automatically.
+Writes to **`.github/skills/audit-*/SKILL.md`** in the project (`~/.copilot/skills` globally —
+note the directory name changes between project and global scope). In Copilot CLI, run
+`/skills reload` then `/skills info audit-new` to confirm; in VS Code/JetBrains Copilot Chat it's
+picked up automatically.
 </details>
 
 <details>
@@ -192,11 +194,10 @@ Writes to **`.agents/skills/audit-*/SKILL.md`**. In Copilot CLI, run `/skills re
 
 ```bash
 curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- gemini
-# or:  pdd adapt gemini         (add --global for ~/.agents/skills)
+# or:  pdd adapt gemini         (add --global for ~/.gemini/skills)
 ```
 
-Writes to **`.agents/skills/audit-*/SKILL.md`**. Run `/skills reload` after installing (`.agents/skills`
-takes precedence over the older `.gemini/skills`/`.gemini/commands` locations).
+Writes to **`.gemini/skills/audit-*/SKILL.md`**. Run `/skills reload` after installing.
 </details>
 
 <details>
