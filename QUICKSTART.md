@@ -22,7 +22,7 @@ claude plugin install pdd@parity-driven-development --scope project
 **Any other agent (Codex / Cursor / Copilot / Gemini):**
 ```bash
 cd /path/to/your-target-project
-curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <agent>
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <codex|cursor|copilot|gemini>
 ```
 
 ## 1 · `/audit-bootstrap` — set up (run once)
