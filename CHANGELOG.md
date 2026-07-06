@@ -6,11 +6,30 @@ All notable changes to PDD are documented here. This project follows
 ## [Unreleased]
 
 ### Added
+- **Complete documentation set (`docs/`, Diátaxis).** Single-source markdown: 6 concept
+  deep-dives (the *why*), 4 reference pages (commands, `.audit/` structure, configuration,
+  the `pdd` CLI), 7 task-oriented guides, and 4 install pages — plus a `docs/` index. The
+  website (`pdd.openvibes.tech/docs`) now renders these markdown files directly (react-markdown),
+  so docs live in one place instead of being hand-rewritten as React components.
+- **Governance files:** `CONTRIBUTING.md`, `DEVELOPMENT.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
+  `SUPPORT.md`.
+- **README overhaul:** dashboard hero GIF, badges, a full documentation index, and a standalone
+  Philosophy section.
+- **Second VHS demo (`demo/board.tape` → `demo/board.gif`):** a clean static `pdd board`
+  snapshot used as the README hero, alongside the existing interactive TUI walkthrough.
 - **`claude` harness in `pdd init`/`pdd adapt`.** Generates `.claude/skills/<name>/SKILL.md` for
   projects not installed via the Claude Code plugin. The interactive `pdd init` menu now lists all
   five harnesses (claude/codex/cursor/copilot/gemini) unselected by default, and nudges toward the
   native plugin install path (`claude plugin install pdd@parity-driven-development`) when running
   from a git clone.
+
+### Fixed
+- **Coverage lifecycle corrected in the README** from a 3-state (`not-started → finding-open →
+  verified`, wrongly promoted by `audit-resolve`) to the true 4-state model
+  (`not-started → finding-open → resolved → verified`): `audit-resolve` marks `resolved` (a local,
+  unguaranteed claim); only `audit-qa` reaches `verified`, after target-environment QA approval
+  **and** a human merge. Also fixed the same `resolved`/`verified` conflation in
+  `audit-resolve`'s output message.
 
 ### Changed
 - **Each harness now writes to its own native skill directory** instead of sharing a single
