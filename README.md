@@ -55,6 +55,25 @@ commands**, and **progressive disclosure** (the cycle teaches itself).
 
 ## Installation
 
+**Pick your agent** — the native one-liner for each. Install scopes (shared / just-me / global),
+the command-file fallback, and the honest native-vs-fallback matrix are in
+[Install in any agent](#install-in-any-agent).
+
+| Agent | Install (run in your target project) |
+|---|---|
+| **Claude Code** | `claude plugin marketplace add blpsoares/parity-driven-development --scope project` → `claude plugin install pdd@parity-driven-development --scope project` |
+| **GitHub Copilot** | `copilot plugin marketplace add blpsoares/parity-driven-development` → `copilot plugin install pdd@parity-driven-development` |
+| **Factory Droid** | `droid plugin marketplace add https://github.com/blpsoares/parity-driven-development` → `droid plugin install pdd@parity-driven-development` |
+| **Antigravity** | `agy plugin install https://github.com/blpsoares/parity-driven-development` |
+| **Gemini CLI** | `gemini extensions install https://github.com/blpsoares/parity-driven-development` |
+| **Pi** | `pi install git:github.com/blpsoares/parity-driven-development` |
+| **Codex · Cursor** | `curl -fsSL https://pdd.openvibes.tech/cli \| bash -s -- codex` — *(official marketplace listing pending)* |
+| **Any other agent** | `curl -fsSL https://pdd.openvibes.tech/cli \| bash -s -- <harness>` |
+
+<sub>Add `--private` (just me, gitignored) or `--global` (home config) to the `curl … \| bash` and `pdd adapt` forms. Codex/Cursor manifests ship here and are submission-ready; until they're listed in those agents' official marketplaces, use the command-file line above.</sub>
+
+### Claude Code — the details
+
 PDD ships as a single-plugin marketplace. Install it **per-project** — its whole job is to track
 the parity of *one* migration in that project's `.audit/` directory.
 
