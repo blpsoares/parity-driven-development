@@ -16,6 +16,5 @@
     "legacy",
     "framework"
   ],
-  "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "skills": "./skills/"
 }
