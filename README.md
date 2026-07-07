@@ -1,10 +1,26 @@
 # PDD — Parity-Driven Development
 
+[![version](https://img.shields.io/badge/version-2.1.0-3b82f6)](CHANGELOG.md)
+[![license](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
+[![agents](https://img.shields.io/badge/agents-Claude%20·%20Codex%20·%20Cursor%20·%20Copilot%20·%20Gemini-8957e5)](#install-in-any-agent)
+[![docs](https://img.shields.io/badge/docs-pdd.openvibes.tech-06b6d4)](https://pdd.openvibes.tech/docs)
+[![runtime](https://img.shields.io/badge/runtime-Node%20or%20Bun%20·%20no%20npm-f59e0b)](#the-pdd-cli)
+
 **A framework for reliable legacy refactor, rewrite, and port — with tracked behavioral parity.**
+
+<p align="center">
+  <img src="demo/board.gif" alt="pdd dashboard — parity coverage %, findings by status, confidence tiers, active work" width="840">
+  <br>
+  <sub><b>Objective, tracked parity at a glance</b> — coverage %, findings by lifecycle, confidence tiers, live activity. Rendered from real <code>.audit/</code> state with <a href="demo/board.tape">VHS</a>.</sub>
+</p>
 
 PDD turns "does the new system still behave like the old one?" from a gut feeling into
 **objective, tracked evidence**. Every behavior of the reference (legacy) system becomes a
 finding you can investigate, fix, prove, and gate through QA before it ever reaches `main`.
+
+> 📚 **Full documentation:** [**pdd.openvibes.tech/docs**](https://pdd.openvibes.tech/docs) —
+> concepts (the *why*), step-by-step guides, and a complete command & config reference. Source
+> lives as markdown in [`docs/`](docs/).
 
 The framework is built on eight principles: **forced discipline / gates**, **state
 externalized in files** (`.audit/` is the source of truth, not the model's context),
@@ -20,6 +36,22 @@ commands**, and **progressive disclosure** (the cycle teaches itself).
 
 > **New to PDD?** The [**Quickstart**](QUICKSTART.md) walks you from zero to your first verified
 > finding, one command at a time, with a real worked example.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [The cycle (multi-phase QA)](#the-cycle-multi-phase-qa)
+- [Skills](#skills)
+- [Install in any agent](#install-in-any-agent)
+- [Updating](#updating)
+- [Confidence tiers](#confidence-tiers)
+- [Philosophy](#philosophy)
+- [The coverage map](#the-coverage-map)
+- [The `pdd` CLI](#the-pdd-cli)
+- [Generated `.audit/` structure](#generated-audit-structure)
+- [Language](#language)
+- [Learn more](#learn-more)
+- [License](#license)
 
 ## Installation
 
@@ -120,10 +152,9 @@ PDD's method (`.audit/`) and the `pdd` CLI are **harness-agnostic** — only the
 registers slash commands differs. PDD is command-based (like `specify init`), not hook-based, so
 installing just scaffolds the right command files.
 
-Codex, Gemini CLI and Copilot CLI have converged on the same skill convention —
-`.agents/skills/<name>/SKILL.md` at the project root, or `~/.agents/skills/` globally — so
-installing for any one of them writes files the other two can read natively too. Cursor keeps its
-own `.cursor/commands/*.md` format.
+Each harness writes to its own native skill directory today (`.claude/skills/`, `.agents/skills/`
+for Codex, `.cursor/skills/`, `.github/skills/` for Copilot, `.gemini/skills/` for Gemini) —
+see the per-agent sections below for exact paths, including `--global` equivalents.
 
 **Shell installer** (needs `git` + **Node or Bun** — no npm; works with no Claude Code). Run it
 from **the project you're refactoring/porting** (the target repo whose parity you're tracking) —
@@ -131,7 +162,7 @@ not from a clone of this PDD repo:
 
 ```bash
 cd /path/to/your-target-project
-curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <codex|cursor|copilot|gemini|all>
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <claude|codex|cursor|copilot|gemini|all>
 ```
 
 Already have the CLI? **`pdd init`** (alias: `pdd install`) opens an interactive picker
@@ -171,8 +202,9 @@ curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cursor
 # or:  pdd adapt cursor        (add --global for ~/.cursor)
 ```
 
-Writes to **`.cursor/commands/audit-*.md`** in the project (committable, shared with your team).
-Invoke with `/audit-new`. Cursor doesn't read the `.agents/skills` convention the other three share.
+Writes to **`.cursor/skills/audit-*/SKILL.md`** in the project (committable, shared with your
+team; add `--global` for `~/.cursor/skills`). Invoke with `/audit-new`, or just describe the task —
+Cursor matches skills by description too.
 </details>
 
 <details>
@@ -180,11 +212,13 @@ Invoke with `/audit-new`. Cursor doesn't read the `.agents/skills` convention th
 
 ```bash
 curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- copilot
-# or:  pdd adapt copilot        (add --global for ~/.agents/skills)
+# or:  pdd adapt copilot        (add --global for ~/.copilot/skills)
 ```
 
-Writes to **`.agents/skills/audit-*/SKILL.md`**. In Copilot CLI, run `/skills reload` then
-`/skills info audit-new` to confirm; in VS Code/JetBrains Copilot Chat it's picked up automatically.
+Writes to **`.github/skills/audit-*/SKILL.md`** in the project (`~/.copilot/skills` globally —
+note the directory name changes between project and global scope). In Copilot CLI, run
+`/skills reload` then `/skills info audit-new` to confirm; in VS Code/JetBrains Copilot Chat it's
+picked up automatically.
 </details>
 
 <details>
@@ -192,11 +226,10 @@ Writes to **`.agents/skills/audit-*/SKILL.md`**. In Copilot CLI, run `/skills re
 
 ```bash
 curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- gemini
-# or:  pdd adapt gemini         (add --global for ~/.agents/skills)
+# or:  pdd adapt gemini         (add --global for ~/.gemini/skills)
 ```
 
-Writes to **`.agents/skills/audit-*/SKILL.md`**. Run `/skills reload` after installing (`.agents/skills`
-takes precedence over the older `.gemini/skills`/`.gemini/commands` locations).
+Writes to **`.gemini/skills/audit-*/SKILL.md`**. Run `/skills reload` after installing.
 </details>
 
 <details>
@@ -246,22 +279,42 @@ The tier lives in the finding's frontmatter (`confidence`) and in the `evidence`
 
 ---
 
+## Philosophy
+
+PDD rests on **eight principles** that turn behavioral parity from a gut feeling into
+tracked evidence: **forced discipline / gates** (each command refuses to advance on
+insufficient input), **state externalized in files** (`.audit/` is the source of truth, not
+the model's context), **small composable commands**, **objective evidence over opinion**, **a
+human at the gate of every irreversible action**, **fast observable feedback**, **idempotent
+state-aware commands**, and **progressive disclosure** (the cycle teaches itself). Together
+they make a migration auditable by anyone, at any time, regardless of which agent or session
+produced the work.
+
+For the reasoning behind the method and a principle-by-principle deep dive, see
+[**What is PDD?**](docs/concepts/what-is-pdd.md) and
+[**The eight principles**](docs/concepts/the-eight-principles.md).
+
+---
+
 ## The coverage map
 
 `.audit/coverage.md` is a **machine-readable** table — the single view of *how much of the
 legacy behavior is already verified, and at what confidence*. Seeded by `audit-bootstrap`,
-moved to `finding-open` by `audit-new`, and to `verified` by `audit-resolve`.
+moved to `finding-open` by `audit-new`, to `resolved` by `audit-resolve`, and only to
+`verified` by `audit-qa` — once the target-environment QA is approved **and** the PR is merged.
 
 ```markdown
 | Behavior / Area          | Reference case | Status        | Tier   | Finding |
 |--------------------------|----------------|---------------|--------|---------|
 | checkout: total          | order #123     | verified      | tier-3 | 007     |
+| login: total (local fix) | order #124     | resolved      | tier-2 | 009     |
 | login: lock after 3 fails| test user      | finding-open  | tier-1 | 012     |
 | export CSV               | —              | not-started   | —      | —       |
 ```
 
-Status is one of `not-started` · `finding-open` · `verified`.
-**Parity coverage %** = verified / total — the headline metric on the panel.
+Status is one of `not-started` · `finding-open` · `resolved` · `verified`. `resolved` is a
+**local, unguaranteed** claim (the fix landed, tests pass); only `verified` counts as a
+guarantee. **Parity coverage %** = verified / total — the headline metric on the panel.
 
 ---
 
@@ -352,6 +405,42 @@ working language** — the example phrases in the skills are templates, not lite
 
 ---
 
+## Learn more
+
+The full docs live at **[pdd.openvibes.tech/docs](https://pdd.openvibes.tech/docs)** and, as
+single-source markdown, in **[`docs/`](docs/)**. Organized by [Diátaxis](https://diataxis.fr/):
+
+**Concepts** — the *why* behind the method:
+[What is PDD?](docs/concepts/what-is-pdd.md) ·
+[The eight principles](docs/concepts/the-eight-principles.md) ·
+[Evidence & tiers](docs/concepts/evidence-and-tiers.md) ·
+[The coverage model](docs/concepts/coverage-model.md) ·
+[Multi-phase QA](docs/concepts/multi-phase-qa.md) ·
+[State lives in files](docs/concepts/state-in-files.md)
+
+**Guides** — task-oriented how-tos:
+[Refactor a legacy monolith](docs/guides/refactor-legacy-monolith.md) ·
+[Port to a new language](docs/guides/port-to-new-language.md) ·
+[Parallel findings with worktrees](docs/guides/parallel-findings-worktrees.md) ·
+[Set up QA environments](docs/guides/qa-environments.md) ·
+[Handle a rejected QA](docs/guides/handling-rejected-qa.md) ·
+[PDD in a monorepo](docs/guides/monorepo.md) ·
+[Golden-master adapters](docs/guides/golden-master-adapters.md)
+
+**Reference** — dry and exhaustive:
+[Command reference](docs/reference/commands.md) ·
+[The `.audit/` structure](docs/reference/audit-structure.md) ·
+[Configuration](docs/reference/configuration.md) ·
+[The `pdd` CLI](docs/reference/cli.md)
+
+**Contributing:** [`CONTRIBUTING.md`](CONTRIBUTING.md) ·
+[`DEVELOPMENT.md`](DEVELOPMENT.md) ·
+[`SECURITY.md`](SECURITY.md) ·
+[`SUPPORT.md`](SUPPORT.md) ·
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+
+---
+
 ## License
 
-See the repository for license details.
+Released under the [MIT License](LICENSE).

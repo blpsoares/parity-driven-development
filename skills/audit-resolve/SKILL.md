@@ -272,7 +272,7 @@ Fix ready and validated. Summary:
 - Parity with {{REFERENCE_NAME}}: ✅ tier-N (evidence in .audit/resolved/NNN-<slug>/refs/)
 
 Folder moved to .audit/resolved/NNN-<slug>/
-Coverage map: behavior marked "verified" (tier-N).
+Coverage map: behavior marked "resolved" (tier-N) — not yet "verified" (that needs QA + merge).
 Board updated.
 
 🛑 I DID NOT COMMIT (PDD inviolable rule: commit/push is done ONLY by the human).

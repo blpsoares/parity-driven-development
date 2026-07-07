@@ -44,3 +44,20 @@ test("renderMenu shows checkboxes, the cursor and a hint line", () => {
   expect(frame).toContain("detected");
   expect(frame).toContain("space toggle");
 });
+
+test("renderMenu wraps the title in a heavy box-drawing frame", () => {
+  const s: MenuState = { cursor: 0, checked: new Set() };
+  const out = renderMenu("Install PDD commands for which agents?", [{ label: "claude" }], s, true);
+  expect(out).toContain("┏");
+  expect(out).toContain("┃");
+  expect(out).toContain("┗");
+  expect(out).toContain("Install PDD commands for which agents?");
+});
+
+test("renderMenu indents items and the footer under the frame", () => {
+  const s: MenuState = { cursor: 0, checked: new Set() };
+  const out = renderMenu("Pick", [{ label: "claude" }, { label: "codex" }], s, true);
+  const lines = out.split("\n");
+  const claudeLine = lines.find((l) => l.includes("claude"));
+  expect(claudeLine?.startsWith("  ")).toBe(true);
+});
