@@ -18,9 +18,13 @@ PDD installs two ways into a non-Claude agent:
    | **GitHub Copilot** | `copilot plugin marketplace add blpsoares/parity-driven-development` → `copilot plugin install pdd@parity-driven-development` |
    | **Factory Droid** | `droid plugin marketplace add https://github.com/blpsoares/parity-driven-development` → `droid plugin install pdd@parity-driven-development` |
    | **Antigravity** | `agy plugin install https://github.com/blpsoares/parity-driven-development` |
+   | **Codex** | `codex plugin marketplace add blpsoares/parity-driven-development`, then install PDD from `/plugins` (reads `.agents/plugins/marketplace.json` + `.codex-plugin/`) |
+   | **Cursor** | `npx skills add https://github.com/blpsoares/parity-driven-development`, or import the repo as a **Team Marketplace** (reads `.cursor-plugin/`) |
    | **Gemini CLI** | `gemini extensions install https://github.com/blpsoares/parity-driven-development` |
    | **Pi** | `pi install git:github.com/blpsoares/parity-driven-development` |
-   | **Codex** / **Cursor** | ⚠️ manifests ship here, but installing via their **official** marketplaces (`/plugins`, `/add-plugin`) needs the plugin to be listed there first — use the command-file fallback below until then |
+
+   > Getting PDD **listed** in the Codex/Cursor in-app catalogs is an optional marketplace submission —
+   > it is **not** required to install. The commands above install straight from this repo.
 
 2. **Command-file scaffolding** (the fallback, works everywhere) — copies the self-contained
    `audit-*` `SKILL.md` files into the agent's native skill directory. The `.audit/` method and the

@@ -11,8 +11,11 @@ All notable changes to PDD are documented here. This project follows
   `.codex-plugin/plugin.json` (Codex), `.cursor-plugin/plugin.json` (Cursor),
   `.agents/plugins/marketplace.json` (Factory Droid), `gemini-extension.json` (Gemini CLI),
   `.pi/extensions/pdd.ts` (Pi). Copilot and Antigravity install via the existing
-  `.claude-plugin/` manifests. Codex and Cursor are submission-ready for their official
-  marketplaces; until listed there, the command-file fallback still works.
+  `.claude-plugin/` manifests. Codex installs from the repo with
+  `codex plugin marketplace add blpsoares/parity-driven-development` (reads
+  `.agents/plugins/marketplace.json` + `.codex-plugin/`); Cursor installs via `npx skills add`
+  or a Team-Marketplace repo import (reads `.cursor-plugin/`). Getting listed in the Codex/Cursor
+  in-app catalogs is an optional, separate marketplace submission — not required to install.
 - **Third install scope — "just me" (`--private`).** `pdd adapt <harness> --private` and the
   `pdd init` picker now offer a personal, project-local install: the command files are written into
   the project but added to `.gitignore` (and no shared `AGENTS.md`/`GEMINI.md` block is touched), so

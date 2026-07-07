@@ -66,11 +66,12 @@ the command-file fallback, and the honest native-vs-fallback matrix are in
 | **Factory Droid** | `droid plugin marketplace add https://github.com/blpsoares/parity-driven-development` → `droid plugin install pdd@parity-driven-development` |
 | **Antigravity** | `agy plugin install https://github.com/blpsoares/parity-driven-development` |
 | **Gemini CLI** | `gemini extensions install https://github.com/blpsoares/parity-driven-development` |
+| **Codex** | `codex plugin marketplace add blpsoares/parity-driven-development` → install PDD from `/plugins` |
+| **Cursor** | `npx skills add https://github.com/blpsoares/parity-driven-development` *(or import as a Team Marketplace)* |
 | **Pi** | `pi install git:github.com/blpsoares/parity-driven-development` |
-| **Codex · Cursor** | `curl -fsSL https://pdd.openvibes.tech/cli \| bash -s -- codex` — *(official marketplace listing pending)* |
 | **Any other agent** | `curl -fsSL https://pdd.openvibes.tech/cli \| bash -s -- <harness>` |
 
-<sub>Add `--private` (just me, gitignored) or `--global` (home config) to the `curl … \| bash` and `pdd adapt` forms. Codex/Cursor manifests ship here and are submission-ready; until they're listed in those agents' official marketplaces, use the command-file line above.</sub>
+<sub>All installs are self-service — they read manifests that ship in this repo. Add `--private` (just me, gitignored) or `--global` (home config) to the `curl … \| bash` and `pdd adapt` forms. Getting PDD *listed in* the Codex/Cursor **in-app catalogs** is a separate, optional step (marketplace submission) — it is **not** required to install.</sub>
 
 ### Claude Code — the details
 
@@ -195,16 +196,15 @@ Each harness's plugin manager reads a manifest that ships in this repo (`.claude
 | **GitHub Copilot** | `copilot plugin marketplace add blpsoares/parity-driven-development` → `copilot plugin install pdd@parity-driven-development` | this repo ✅ |
 | **Factory Droid** | `droid plugin marketplace add https://github.com/blpsoares/parity-driven-development` → `droid plugin install pdd@parity-driven-development` | this repo ✅ |
 | **Antigravity** | `agy plugin install https://github.com/blpsoares/parity-driven-development` | this repo ✅ (reads `.claude-plugin/`) |
+| **Codex** (CLI) | `codex plugin marketplace add blpsoares/parity-driven-development`, then install PDD from `/plugins` | this repo ✅ (reads `.agents/plugins/marketplace.json` + `.codex-plugin/`) |
+| **Cursor** | `npx skills add https://github.com/blpsoares/parity-driven-development`, or import as a **Team Marketplace** | this repo ✅ (reads `.cursor-plugin/`) |
 | **Gemini CLI** | `gemini extensions install https://github.com/blpsoares/parity-driven-development` | this repo ✅ |
 | **Pi** | `pi install git:github.com/blpsoares/parity-driven-development` | this repo ✅ |
-| **Codex** (app/CLI) | in-app `/plugins` search | ⚠️ **pending listing** in Codex's official marketplace |
-| **Cursor** | `/add-plugin pdd` | ⚠️ **pending listing** in Cursor's official marketplace |
 
-> **Honest note:** the `.codex-plugin/` and `.cursor-plugin/` manifests are here, so PDD is
-> **submission-ready** for the Codex and Cursor *official* marketplaces — but those require the
-> maintainer to submit the plugin for listing. Until then, use the command-file fallback below for
-> Codex and Cursor. If your harness version doesn't recognize a native command above, the fallback
-> always works.
+> **On "official marketplaces":** the Codex and Cursor *in-app catalogs* (`/plugins` browse, Cursor's
+> plugin search) list plugins their teams have curated — getting PDD **listed** there is an optional
+> submission. It is **not** required to install: `codex plugin marketplace add <repo>` and Cursor's
+> Team-Marketplace repo import (or `npx skills add <repo>`) install straight from this repo today.
 
 ### Command-file fallback (works in any agent, no plugin system needed)
 
