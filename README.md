@@ -55,19 +55,31 @@ commands**, and **progressive disclosure** (the cycle teaches itself).
 
 ## Installation
 
-PDD ships as a single-plugin marketplace. Install it into a project:
+PDD ships as a single-plugin marketplace. Install it **per-project** — its whole job is to track
+the parity of *one* migration in that project's `.audit/` directory.
 
+It takes **two separate commands** (they write two different keys in `.claude/settings.json`):
+
+```bash
+claude plugin marketplace add blpsoares/parity-driven-development --scope project   # → extraKnownMarketplaces
+claude plugin install       pdd@parity-driven-development         --scope project   # → enabledPlugins
 ```
-/plugin marketplace add blpsoares/parity-driven-development
-claude plugin install pdd@parity-driven-development --scope project
-```
 
-> **PDD only makes sense installed per-project** (`--scope project`). Its whole job is to
-> track the parity of *one* migration against *one* reference system, and it stores that
-> state in the project's `.audit/` directory. A global install has nothing to track.
+- `marketplace add` **declares the source**; `install` **enables the plugin**. You need both.
+- **Use `--scope project` on BOTH** and commit `.claude/settings.json` — then your teammates just
+  **clone → trust the repo → approve the install prompt**, with no manual setup.
 
-**Coming from the old home?** If you installed PDD via `pdd@blpsoares-my-claude`, reinstall
-it from the new marketplace above. PDD moved to its own dedicated repo.
+> ⚠️ **Common trap:** `install --scope project` alone only writes `enabledPlugins`. Without
+> `marketplace add --scope project` (which writes `extraKnownMarketplaces`), teammates can't
+> resolve the plugin. For a solo machine you can drop `--scope project` from `marketplace add`
+> (it defaults to `user`), but then it isn't shared.
+
+> **Note:** plugin skills live in the global cache (`~/.claude/plugins/cache/…`), **not** the
+> project's `.claude/skills/` — an empty `.claude/skills/` is normal and expected.
+
+**Coming from the old home?** If you installed PDD via `pdd@blpsoares-my-claude`, remove it
+(`claude plugin uninstall pdd@blpsoares-my-claude --scope project`) and install from the new
+marketplace above. PDD moved to its own dedicated repo. Your `.audit/` folder stays as-is.
 
 ---
 

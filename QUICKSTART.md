@@ -13,11 +13,17 @@ each step is gated and refuses to advance on weak input, so the framework guides
 > Run this from **the project you're refactoring/porting** — the target repo whose parity you'll
 > track — not from a clone of PDD itself. `.audit/` and the agent command files get written there.
 
-**Claude Code:**
+**Claude Code** (two commands — both `--scope project` so the config is committed and your
+teammates inherit it by cloning + trusting the repo):
 ```bash
-/plugin marketplace add blpsoares/parity-driven-development
-claude plugin install pdd@parity-driven-development --scope project
+claude plugin marketplace add blpsoares/parity-driven-development --scope project
+claude plugin install       pdd@parity-driven-development         --scope project
 ```
+> `marketplace add` declares the source (`extraKnownMarketplaces`); `install` enables the plugin
+> (`enabledPlugins`). You need **both** — `install` alone doesn't let teammates resolve the plugin.
+>
+> This gives you the **skills** (they live in the plugin cache, not `.claude/skills/`). The optional
+> `pdd` terminal dashboard is **separate** — see the "pdd CLI" note below.
 
 **Any other agent (Codex / Cursor / Copilot / Gemini):**
 ```bash
