@@ -55,23 +55,91 @@ commands**, and **progressive disclosure** (the cycle teaches itself).
 
 ## Installation
 
-**Pick your agent** — the native one-liner for each. Install scopes (shared / just-me / global),
-the command-file fallback, and the honest native-vs-fallback matrix are in
+**Pick your agent** — click to expand its install command. All installs are self-service (they read
+manifests that ship in this repo). Scopes, the command-file fallback, and the full matrix are in
 [Install in any agent](#install-in-any-agent).
 
-| Agent | Install (run in your target project) |
-|---|---|
-| **Claude Code** | `claude plugin marketplace add blpsoares/parity-driven-development --scope project` → `claude plugin install pdd@parity-driven-development --scope project` |
-| **GitHub Copilot** | `copilot plugin marketplace add blpsoares/parity-driven-development` → `copilot plugin install pdd@parity-driven-development` |
-| **Factory Droid** | `droid plugin marketplace add https://github.com/blpsoares/parity-driven-development` → `droid plugin install pdd@parity-driven-development` |
-| **Antigravity** | `agy plugin install https://github.com/blpsoares/parity-driven-development` |
-| **Gemini CLI** | `gemini extensions install https://github.com/blpsoares/parity-driven-development` |
-| **Codex** | `codex plugin marketplace add blpsoares/parity-driven-development` → install PDD from `/plugins` |
-| **Cursor** | `npx skills add https://github.com/blpsoares/parity-driven-development` *(or import as a Team Marketplace)* |
-| **Pi** | `pi install git:github.com/blpsoares/parity-driven-development` |
-| **Any other agent** | `curl -fsSL https://pdd.openvibes.tech/cli \| bash -s -- <harness>` |
+<details>
+<summary><b>Claude Code</b></summary>
 
-<sub>All installs are self-service — they read manifests that ship in this repo. Add `--private` (just me, gitignored) or `--global` (home config) to the `curl … \| bash` and `pdd adapt` forms. Getting PDD *listed in* the Codex/Cursor **in-app catalogs** is a separate, optional step (marketplace submission) — it is **not** required to install.</sub>
+```bash
+claude plugin marketplace add blpsoares/parity-driven-development --scope project
+claude plugin install       pdd@parity-driven-development         --scope project
+```
+</details>
+
+<details>
+<summary><b>GitHub Copilot</b></summary>
+
+```bash
+copilot plugin marketplace add blpsoares/parity-driven-development
+copilot plugin install       pdd@parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Codex</b></summary>
+
+```bash
+codex plugin marketplace add blpsoares/parity-driven-development
+# then open /plugins and install PDD
+```
+
+Reads `.agents/plugins/marketplace.json` + `.codex-plugin/`. Listing in the in-app catalog is optional, not required to install.
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
+
+```bash
+npx skills add https://github.com/blpsoares/parity-driven-development
+# or import the repo as a Team Marketplace in Cursor
+```
+</details>
+
+<details>
+<summary><b>Factory Droid</b></summary>
+
+```bash
+droid plugin marketplace add https://github.com/blpsoares/parity-driven-development
+droid plugin install       pdd@parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Antigravity</b></summary>
+
+```bash
+agy plugin install https://github.com/blpsoares/parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Gemini CLI</b></summary>
+
+```bash
+gemini extensions install https://github.com/blpsoares/parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Pi</b></summary>
+
+```bash
+pi install git:github.com/blpsoares/parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Any other agent</b> — command-file fallback</summary>
+
+```bash
+cd /path/to/your-target-project
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <codex|cursor|copilot|gemini|all> [--private | --global]
+```
+
+Copies the self-contained `SKILL.md` files into the agent's skill directory. `--private` = personal (gitignored); `--global` = home config.
+</details>
 
 ### Claude Code — the details
 
