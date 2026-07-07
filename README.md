@@ -131,6 +131,25 @@ pi install git:github.com/blpsoares/parity-driven-development
 </details>
 
 <details>
+<summary><b>Kimi Code</b></summary>
+
+```text
+/plugins install https://github.com/blpsoares/parity-driven-development
+```
+Or open `/plugins` → Marketplace and install PDD. Reads `.kimi-plugin/plugin.json`.
+</details>
+
+<details>
+<summary><b>OpenCode</b></summary>
+
+Add to your `opencode.json`:
+```json
+{ "plugin": ["pdd@git+https://github.com/blpsoares/parity-driven-development.git"] }
+```
+Restart OpenCode. See [`.opencode/INSTALL.md`](.opencode/INSTALL.md).
+</details>
+
+<details>
 <summary><b>Any other agent</b> — command-file fallback</summary>
 
 ```bash
@@ -268,6 +287,8 @@ Each harness's plugin manager reads a manifest that ships in this repo (`.claude
 | **Cursor** | `npx skills add https://github.com/blpsoares/parity-driven-development`, or import as a **Team Marketplace** | this repo ✅ (reads `.cursor-plugin/`) |
 | **Gemini CLI** | `gemini extensions install https://github.com/blpsoares/parity-driven-development` | this repo ✅ |
 | **Pi** | `pi install git:github.com/blpsoares/parity-driven-development` | this repo ✅ |
+| **Kimi Code** | `/plugins install https://github.com/blpsoares/parity-driven-development` | this repo ✅ (reads `.kimi-plugin/`) |
+| **OpenCode** | add `pdd@git+https://…` to `opencode.json` `plugin` array | this repo ✅ (reads `.opencode/`) |
 
 > **On "official marketplaces":** the Codex and Cursor *in-app catalogs* (`/plugins` browse, Cursor's
 > plugin search) list plugins their teams have curated — getting PDD **listed** there is an optional

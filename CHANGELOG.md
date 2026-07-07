@@ -6,11 +6,18 @@ All notable changes to PDD are documented here. This project follows
 ## [Unreleased]
 
 ### Added
-- **Native plugin manifests for more harnesses.** Alongside the Claude Code plugin, PDD now ships
-  the manifests each harness's own plugin manager reads, so it installs natively from the repo:
+- **Native plugin manifests for every supported harness.** Alongside the Claude Code plugin, PDD now
+  ships the manifests each harness's own plugin manager reads, so it installs natively from the repo:
   `.codex-plugin/plugin.json` (Codex), `.cursor-plugin/plugin.json` (Cursor),
-  `.agents/plugins/marketplace.json` (Factory Droid), `gemini-extension.json` (Gemini CLI),
-  `.pi/extensions/pdd.ts` (Pi). Copilot and Antigravity install via the existing
+  `.agents/plugins/marketplace.json` (Factory Droid), `gemini-extension.json` + `GEMINI.md`
+  (Gemini CLI), `.pi/extensions/pdd.ts` (Pi), `.kimi-plugin/plugin.json` (Kimi Code), and
+  `.opencode/plugins/pdd.js` + `.opencode/INSTALL.md` (OpenCode).
+- **Cross-harness SessionStart hook.** A polyglot `hooks/run-hook.cmd` + `hooks/session-start`
+  make PDD's update-awareness work outside Claude Code (e.g. Cursor via `hooks/hooks-cursor.json`).
+  `scripts/session-update-check.sh` is now harness-agnostic — it derives the plugin root from the
+  environment or its own location and emits the context-injection JSON each platform expects
+  (`additional_context` for Cursor, `hookSpecificOutput` for Claude Code, `additionalContext`
+  otherwise). Copilot and Antigravity install via the existing
   `.claude-plugin/` manifests. Codex installs from the repo with
   `codex plugin marketplace add blpsoares/parity-driven-development` (reads
   `.agents/plugins/marketplace.json` + `.codex-plugin/`); Cursor installs via `npx skills add`

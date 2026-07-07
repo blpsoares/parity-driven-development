@@ -1,0 +1,34 @@
+{
+  "name": "pdd",
+  "version": "2.1.0",
+  "description": "PDD (Parity-Driven Development) — framework for reliable legacy refactor/rewrite/port with tracked behavioral parity.",
+  "author": {
+    "name": "Bryan Soares",
+    "url": "https://github.com/blpsoares"
+  },
+  "homepage": "https://github.com/blpsoares/parity-driven-development",
+  "license": "MIT",
+  "keywords": [
+    "pdd",
+    "parity",
+    "audit",
+    "migration",
+    "refactor",
+    "legacy",
+    "qa"
+  ],
+  "skills": "./skills/",
+  "skillInstructions": "PDD is command-based: the user invokes /audit-bootstrap, /audit-new, /audit-investigate, /audit-resolve, /audit-compare, /audit-qa <env>, /audit-pr, /audit-status (Kimi Code also matches skills by description). When a Superpowers-style instruction says to ask the user, use Kimi Code's AskUserQuestion. When it refers to a subagent, use Kimi Code's Agent tool. When beginning PDD work, run `pdd check` in the terminal and, if it reports an update, offer `pdd update`. Full method and reference: AGENTS.md.",
+  "interface": {
+    "displayName": "PDD — Parity-Driven Development",
+    "shortDescription": "Refactor, rewrite, and port legacy systems with tracked behavioral parity.",
+    "longDescription": "PDD turns \"does the new system still behave like the old one?\" into objective, tracked evidence — a finding at a time, gated through QA before it reaches main.",
+    "developerName": "Bryan Soares",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://pdd.openvibes.tech"
+  }
+}

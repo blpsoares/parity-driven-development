@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Harness-agnostic SessionStart hook for PDD (Cursor, Copilot CLI, and any agent
+# whose hook runner invokes this via run-hook.cmd). It delegates to the single
+# source of update-check logic in scripts/session-update-check.sh, which detects
+# the platform and emits the correct context-injection JSON.
+set -euo pipefail
+
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec bash "${HOOK_DIR}/../scripts/session-update-check.sh"
