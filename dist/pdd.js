@@ -1364,6 +1364,22 @@ function writeRules(harness, projectRoot) {
   }
   return targetPath;
 }
+function addToGitignore(projectRoot, patterns) {
+  const giPath = join2(projectRoot, ".gitignore");
+  const existing = existsSync2(giPath) ? readFileSync2(giPath, "utf8") : "";
+  const present = new Set(existing.split("\n").map((l) => l.trim()));
+  const toAdd = [];
+  for (const p of patterns) {
+    if (present.has(p)) continue;
+    present.add(p);
+    toAdd.push(p);
+  }
+  if (toAdd.length === 0) return null;
+  const header = "# PDD \u2014 private (just-me) install; personal command files, not shared";
+  const next = (existing.trim() ? existing.trimEnd() + "\n\n" : "") + header + "\n" + toAdd.join("\n") + "\n";
+  writeFileSync(giPath, next);
+  return giPath;
+}
 function assertSafeProjectRoot(projectRoot, global) {
   if (global) return;
   if (resolve2(projectRoot) === homedir()) {
@@ -1376,6 +1392,7 @@ cd into your project first, or pass --global if you really want a global install
 function adaptAll(harness, opts) {
   assertSafeProjectRoot(opts.projectRoot, opts.global);
   const base = baseDirFor(opts.projectRoot, opts.global);
+  const priv = !!opts.priv && !opts.global;
   const written = [];
   for (const skill of readSkills(opts.skillsDir)) {
     const { relPath, content } = renderSkillFor(harness, skill, opts.global);
@@ -1384,9 +1401,17 @@ function adaptAll(harness, opts) {
     writeFileSync(target, content);
     written.push(target);
   }
-  if (opts.rules !== false) {
+  const ruleTarget = rulesTargetFor(harness);
+  const wantRules = opts.rules !== false && !(priv && ruleTarget?.mode === "block");
+  if (wantRules) {
     const rulePath = writeRules(harness, opts.projectRoot);
     if (rulePath) written.push(rulePath);
+  }
+  if (priv) {
+    const patterns = [`${PROJECT_SKILL_DIR[harness]}/`];
+    if (ruleTarget?.mode === "overwrite") patterns.push(ruleTarget.relPath);
+    const gi = addToGitignore(opts.projectRoot, patterns);
+    if (gi) written.push(gi);
   }
   return written;
 }
@@ -1736,6 +1761,7 @@ async function runInit(args) {
   if (IS_GIT_CLONE) process.stdout.write(PLUGIN_INSTALL_TIP + "\n");
   let targets;
   let global = args.includes("--global");
+  let priv = args.includes("--private");
   if (explicit.length > 0 || !process.stdin.isTTY || args.includes("--global")) {
     targets = explicit.length > 0 ? explicit : detected;
     if (targets.length === 0) {
@@ -1756,19 +1782,24 @@ async function runInit(args) {
     targets = picked.map((i) => all[i]);
     const scope = await runMenu(
       "Install scope?",
-      [{ label: "project", hint: projectRoot }, { label: "global", hint: "your home config" }],
+      [
+        { label: "project (shared)", hint: "committed \u2014 every collaborator gets PDD" },
+        { label: "project (just me)", hint: "in the project but gitignored \u2014 personal" },
+        { label: "global", hint: "your home config \u2014 every project" }
+      ],
       { multi: false }
     );
     if (scope === null) {
       process.stdout.write("Cancelled \u2014 nothing installed.\n");
       return;
     }
-    global = scope[0] === 1;
+    priv = scope[0] === 1;
+    global = scope[0] === 2;
   }
   process.stdout.write("\n");
   for (const harness of targets) {
-    const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
-    const where = global ? "home config" : "project";
+    const written = adaptAll(harness, { skillsDir, projectRoot, global, priv, rules: !args.includes("--no-rules") });
+    const where = global ? "home config" : priv ? "project (gitignored)" : "project (shared)";
     process.stdout.write(`\u2705 ${harness} \u2192 ${written.length} command(s) in ${where}
 `);
   }
@@ -1799,17 +1830,21 @@ async function main(argv) {
     const harness = args[1];
     if (!harnesses.includes(harness)) {
       process.stdout.write(
-        `Usage: pdd adapt <${harnesses.join("|")}> [--global] [project-dir]
+        `Usage: pdd adapt <${harnesses.join("|")}> [--global | --private] [--no-rules] [project-dir]
 Generates PDD slash-command / prompt files for that agent from the canonical skills.
+  (default)   project scope, shared \u2014 commit the files so collaborators get PDD
+  --private   project scope, just me \u2014 writes the files but adds them to .gitignore
+  --global    home config \u2014 available in every project
 `
       );
       process.exitCode = 1;
       return;
     }
     const global = args.includes("--global");
+    const priv = args.includes("--private");
     const projectRoot = args.slice(2).find((a) => !a.startsWith("-")) ?? process.cwd();
     const skillsDir = SKILLS_DIR;
-    const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
+    const written = adaptAll(harness, { skillsDir, projectRoot, global, priv, rules: !args.includes("--no-rules") });
     if (written.length === 0) {
       process.stdout.write("No skills found to adapt.\n");
     } else {

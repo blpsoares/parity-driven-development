@@ -1,0 +1,23 @@
+{
+  "name": "pdd",
+  "displayName": "PDD — Parity-Driven Development",
+  "description": "Refactor, rewrite, and port legacy systems with tracked behavioral parity: objective evidence, characterization tests, and QA as a merge gate.",
+  "version": "2.1.0",
+  "author": {
+    "name": "Bryan Soares",
+    "url": "https://github.com/blpsoares"
+  },
+  "homepage": "https://github.com/blpsoares/parity-driven-development",
+  "repository": "https://github.com/blpsoares/parity-driven-development",
+  "license": "MIT",
+  "keywords": [
+    "pdd",
+    "parity",
+    "audit",
+    "migration",
+    "refactor",
+    "legacy",
+    "qa"
+  ],
+  "skills": "./skills/"
+}

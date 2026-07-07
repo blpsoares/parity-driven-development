@@ -8,12 +8,26 @@ slug: "install-other-agents"
 
 # Install: Codex, Cursor, Copilot, Gemini
 
-PDD is command-based, not hook-based: installing it into a non-Claude agent just scaffolds the
-`audit-*` command files into that agent's **native skill directory**. The `.audit/` method and the
-`pdd` CLI are identical across harnesses — only where the command files land differs. This page
-covers the four supported non-Claude agents. For the native Claude Code plugin, see
-[Install: Claude Code](claude-code.md); for the overview and the one-liner, see
-[Install: overview](index.md).
+PDD installs two ways into a non-Claude agent:
+
+1. **Native plugin** — for harnesses with a plugin system, PDD ships the manifest their plugin
+   manager reads, so it installs from this repo like any other plugin:
+
+   | Harness | Native install |
+   |---|---|
+   | **GitHub Copilot** | `copilot plugin marketplace add blpsoares/parity-driven-development` → `copilot plugin install pdd@parity-driven-development` |
+   | **Factory Droid** | `droid plugin marketplace add https://github.com/blpsoares/parity-driven-development` → `droid plugin install pdd@parity-driven-development` |
+   | **Antigravity** | `agy plugin install https://github.com/blpsoares/parity-driven-development` |
+   | **Gemini CLI** | `gemini extensions install https://github.com/blpsoares/parity-driven-development` |
+   | **Pi** | `pi install git:github.com/blpsoares/parity-driven-development` |
+   | **Codex** / **Cursor** | ⚠️ manifests ship here, but installing via their **official** marketplaces (`/plugins`, `/add-plugin`) needs the plugin to be listed there first — use the command-file fallback below until then |
+
+2. **Command-file scaffolding** (the fallback, works everywhere) — copies the self-contained
+   `audit-*` `SKILL.md` files into the agent's native skill directory. The `.audit/` method and the
+   `pdd` CLI are identical across harnesses; only where the command files land differs.
+
+For the native Claude Code plugin, see [Install: Claude Code](claude-code.md); for the overview and
+the one-liner, see [Install: overview](index.md).
 
 > **Run every command below from the project you're refactoring, rewriting, or porting** — the
 > target repo whose parity you're tracking, **not** a clone of the PDD repo. That target directory
@@ -41,8 +55,20 @@ Both write the same command files; pick whichever you have on hand.
    pdd adapt codex       # or cursor | copilot | gemini
    ```
 
-Append **`--global`** to either form to install into your home config instead of the project (for
-example `pdd adapt cursor --global`, or `... | bash -s -- cursor --global`).
+### Install scope
+
+The command-file path supports three scopes:
+
+| Scope | What it means | Flag |
+|---|---|---|
+| **project — shared** | committed to the repo so every collaborator gets PDD | *(default)* |
+| **project — just me** | written into the project but added to `.gitignore` (personal) | `--private` |
+| **global** | your home config, available in every project | `--global` |
+
+For example: `pdd adapt cursor --private` (personal, gitignored) or
+`... | bash -s -- cursor --global` (home config). In `--private` mode PDD only writes files it can
+safely ignore — it does **not** edit a shared `AGENTS.md`/`GEMINI.md` block. See
+[configuration](../reference/configuration.md) for the full env/flag reference.
 
 ## Per-agent reference
 

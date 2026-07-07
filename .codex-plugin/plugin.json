@@ -1,0 +1,42 @@
+{
+  "name": "pdd",
+  "version": "2.1.0",
+  "description": "PDD (Parity-Driven Development) — framework for reliable legacy refactor/rewrite/port with tracked behavioral parity: objective evidence, characterization tests, QA as a merge gate, PR dossiers, and a progress dashboard.",
+  "author": {
+    "name": "Bryan Soares",
+    "url": "https://github.com/blpsoares"
+  },
+  "homepage": "https://github.com/blpsoares/parity-driven-development",
+  "repository": "https://github.com/blpsoares/parity-driven-development",
+  "license": "MIT",
+  "keywords": [
+    "pdd",
+    "parity",
+    "audit",
+    "migration",
+    "refactor",
+    "legacy",
+    "characterization-tests",
+    "qa"
+  ],
+  "skills": "./skills/",
+  "hooks": {},
+  "interface": {
+    "displayName": "PDD — Parity-Driven Development",
+    "shortDescription": "Refactor, rewrite, and port legacy systems with tracked behavioral parity.",
+    "longDescription": "PDD turns \"does the new system still behave like the old one?\" into objective, tracked evidence. Each behavior of the reference system becomes a finding you investigate, fix, prove with a characterization test and a golden-master diff, and gate through QA before it reaches main. Provides /audit-bootstrap, /audit-new, /audit-investigate, /audit-resolve, /audit-compare, /audit-qa, /audit-pr and /audit-status.",
+    "developerName": "Bryan Soares",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "I'm refactoring a legacy system and need to prove the new one still behaves the same.",
+      "Let's set up parity tracking for this migration."
+    ],
+    "websiteURL": "https://pdd.openvibes.tech",
+    "brandColor": "#4C8DFF"
+  }
+}

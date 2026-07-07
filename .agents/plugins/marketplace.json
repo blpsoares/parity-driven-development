@@ -1,0 +1,20 @@
+{
+  "name": "parity-driven-development",
+  "interface": {
+    "displayName": "Parity-Driven Development"
+  },
+  "plugins": [
+    {
+      "name": "pdd",
+      "source": {
+        "source": "url",
+        "url": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

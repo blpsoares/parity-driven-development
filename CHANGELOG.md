@@ -6,6 +6,18 @@ All notable changes to PDD are documented here. This project follows
 ## [Unreleased]
 
 ### Added
+- **Native plugin manifests for more harnesses.** Alongside the Claude Code plugin, PDD now ships
+  the manifests each harness's own plugin manager reads, so it installs natively from the repo:
+  `.codex-plugin/plugin.json` (Codex), `.cursor-plugin/plugin.json` (Cursor),
+  `.agents/plugins/marketplace.json` (Factory Droid), `gemini-extension.json` (Gemini CLI),
+  `.pi/extensions/pdd.ts` (Pi). Copilot and Antigravity install via the existing
+  `.claude-plugin/` manifests. Codex and Cursor are submission-ready for their official
+  marketplaces; until listed there, the command-file fallback still works.
+- **Third install scope — "just me" (`--private`).** `pdd adapt <harness> --private` and the
+  `pdd init` picker now offer a personal, project-local install: the command files are written into
+  the project but added to `.gitignore` (and no shared `AGENTS.md`/`GEMINI.md` block is touched), so
+  a developer can use PDD without committing it. Complements the existing project-shared (default)
+  and `--global` scopes.
 - **Complete documentation set (`docs/`, Diátaxis).** Single-source markdown: 6 concept
   deep-dives (the *why*), 4 reference pages (commands, `.audit/` structure, configuration,
   the `pdd` CLI), 7 task-oriented guides, and 4 install pages — plus a `docs/` index. The

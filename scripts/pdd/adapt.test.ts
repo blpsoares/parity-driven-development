@@ -3,7 +3,7 @@
 import { test, expect } from "bun:test";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import {
   parseSkill,
   renderSkillFor,
@@ -12,6 +12,7 @@ import {
   rulesFileContent,
   upsertBlock,
   assertSafeProjectRoot,
+  addToGitignore,
   adaptAll,
 } from "./adapt";
 
@@ -141,6 +142,75 @@ test("adaptAll writes no rules file for claude, only the skill files", () => {
     expect(written).toEqual([join(projectRoot, ".claude/skills/audit-new/SKILL.md")]);
     expect(existsSync(join(projectRoot, "CLAUDE.md"))).toBe(false);
     expect(existsSync(join(projectRoot, "AGENTS.md"))).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("addToGitignore is idempotent and appends under a managed header", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pdd-gi-test-"));
+  try {
+    writeFileSync(join(dir, ".gitignore"), "node_modules/\n");
+    const first = addToGitignore(dir, [".agents/skills/", ".agents/skills/"]);
+    expect(first).toBe(join(dir, ".gitignore"));
+    const gi = readFileSync(join(dir, ".gitignore"), "utf8");
+    expect(gi).toContain("node_modules/");
+    expect(gi).toContain(".agents/skills/");
+    expect((gi.match(/\.agents\/skills\//g) || []).length).toBe(1); // deduped
+    // second run with the same pattern is a no-op (returns null)
+    expect(addToGitignore(dir, [".agents/skills/"])).toBeNull();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("adaptAll priv install gitignores the skill dir and skips the shared AGENTS.md block", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pdd-priv-test-"));
+  try {
+    const skillsDir = join(dir, "skills", "sample-skill");
+    mkdirSync(skillsDir, { recursive: true });
+    writeFileSync(join(skillsDir, "SKILL.md"), SAMPLE);
+    const projectRoot = join(dir, "project");
+    mkdirSync(projectRoot, { recursive: true });
+
+    const written = adaptAll("codex", {
+      skillsDir: join(dir, "skills"),
+      projectRoot,
+      global: false,
+      priv: true,
+    });
+
+    // skill file written, .gitignore updated, and NO shared AGENTS.md touched
+    expect(written).toContain(join(projectRoot, ".agents/skills/audit-new/SKILL.md"));
+    expect(written).toContain(join(projectRoot, ".gitignore"));
+    expect(existsSync(join(projectRoot, "AGENTS.md"))).toBe(false);
+    expect(readFileSync(join(projectRoot, ".gitignore"), "utf8")).toContain(".agents/skills/");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("adaptAll priv install for cursor gitignores both the skill dir and the dedicated rule file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pdd-priv-cursor-"));
+  try {
+    const skillsDir = join(dir, "skills", "sample-skill");
+    mkdirSync(skillsDir, { recursive: true });
+    writeFileSync(join(skillsDir, "SKILL.md"), SAMPLE);
+    const projectRoot = join(dir, "project");
+    mkdirSync(projectRoot, { recursive: true });
+
+    adaptAll("cursor", {
+      skillsDir: join(dir, "skills"),
+      projectRoot,
+      global: false,
+      priv: true,
+    });
+
+    const gi = readFileSync(join(projectRoot, ".gitignore"), "utf8");
+    expect(gi).toContain(".cursor/skills/");
+    expect(gi).toContain(".cursor/rules/pdd.mdc");
+    // the dedicated rule file IS written (it can be safely ignored)
+    expect(existsSync(join(projectRoot, ".cursor/rules/pdd.mdc"))).toBe(true);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
