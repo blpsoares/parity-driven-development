@@ -55,6 +55,113 @@ commands**, and **progressive disclosure** (the cycle teaches itself).
 
 ## Installation
 
+**Pick your agent** — click to expand its install command. All installs are self-service (they read
+manifests that ship in this repo). Scopes, the command-file fallback, and the full matrix are in
+[Install in any agent](#install-in-any-agent).
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+```bash
+claude plugin marketplace add blpsoares/parity-driven-development --scope project
+claude plugin install       pdd@parity-driven-development         --scope project
+```
+</details>
+
+<details>
+<summary><b>GitHub Copilot</b></summary>
+
+```bash
+copilot plugin marketplace add blpsoares/parity-driven-development
+copilot plugin install       pdd@parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Codex</b></summary>
+
+```bash
+codex plugin marketplace add blpsoares/parity-driven-development
+# then open /plugins and install PDD
+```
+
+Reads `.agents/plugins/marketplace.json` + `.codex-plugin/`. Listing in the in-app catalog is optional, not required to install.
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
+
+```bash
+npx skills add https://github.com/blpsoares/parity-driven-development
+# or import the repo as a Team Marketplace in Cursor
+```
+</details>
+
+<details>
+<summary><b>Factory Droid</b></summary>
+
+```bash
+droid plugin marketplace add https://github.com/blpsoares/parity-driven-development
+droid plugin install       pdd@parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Antigravity</b></summary>
+
+```bash
+agy plugin install https://github.com/blpsoares/parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Gemini CLI</b></summary>
+
+```bash
+gemini extensions install https://github.com/blpsoares/parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Pi</b></summary>
+
+```bash
+pi install git:github.com/blpsoares/parity-driven-development
+```
+</details>
+
+<details>
+<summary><b>Kimi Code</b></summary>
+
+```text
+/plugins install https://github.com/blpsoares/parity-driven-development
+```
+Or open `/plugins` → Marketplace and install PDD. Reads `.kimi-plugin/plugin.json`.
+</details>
+
+<details>
+<summary><b>OpenCode</b></summary>
+
+Add to your `opencode.json`:
+```json
+{ "plugin": ["pdd@git+https://github.com/blpsoares/parity-driven-development.git"] }
+```
+Restart OpenCode. See [`.opencode/INSTALL.md`](.opencode/INSTALL.md).
+</details>
+
+<details>
+<summary><b>Any other agent</b> — command-file fallback</summary>
+
+```bash
+cd /path/to/your-target-project
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <codex|cursor|copilot|gemini|all> [--private | --global]
+```
+
+Copies the self-contained `SKILL.md` files into the agent's skill directory. `--private` = personal (gitignored); `--global` = home config.
+</details>
+
+### Claude Code — the details
+
 PDD ships as a single-plugin marketplace. Install it **per-project** — its whole job is to track
 the parity of *one* migration in that project's `.audit/` directory.
 
@@ -160,92 +267,63 @@ approved **and** the PR is merged. **Merge is 100% human.**
 
 ## Install in any agent
 
-PDD's method (`.audit/`) and the `pdd` CLI are **harness-agnostic** — only the way each agent
-registers slash commands differs. PDD is command-based (like `specify init`), not hook-based, so
-installing just scaffolds the right command files.
+PDD ships as a **native plugin** for every harness that has a plugin system, and falls back to
+**command-file scaffolding** — the same self-contained `SKILL.md` files, copied into the agent's
+skill directory — where a native install isn't available. Both paths give you the same `/audit-*`
+commands and the optional `pdd` dashboard.
 
-Each harness writes to its own native skill directory today (`.claude/skills/`, `.agents/skills/`
-for Codex, `.cursor/skills/`, `.github/skills/` for Copilot, `.gemini/skills/` for Gemini) —
-see the per-agent sections below for exact paths, including `--global` equivalents.
+### Native install support
 
-**Shell installer** (needs `git` + **Node or Bun** — no npm; works with no Claude Code). Run it
-from **the project you're refactoring/porting** (the target repo whose parity you're tracking) —
-not from a clone of this PDD repo:
+Each harness's plugin manager reads a manifest that ships in this repo (`.claude-plugin/`,
+`.codex-plugin/`, `.cursor-plugin/`, `.agents/plugins/`, `gemini-extension.json`, `.pi/`).
+
+| Harness | Native install | Installs from |
+|---|---|---|
+| **Claude Code** | `/plugin marketplace add blpsoares/parity-driven-development` → `claude plugin install pdd@parity-driven-development` | this repo ✅ |
+| **GitHub Copilot** | `copilot plugin marketplace add blpsoares/parity-driven-development` → `copilot plugin install pdd@parity-driven-development` | this repo ✅ |
+| **Factory Droid** | `droid plugin marketplace add https://github.com/blpsoares/parity-driven-development` → `droid plugin install pdd@parity-driven-development` | this repo ✅ |
+| **Antigravity** | `agy plugin install https://github.com/blpsoares/parity-driven-development` | this repo ✅ (reads `.claude-plugin/`) |
+| **Codex** (CLI) | `codex plugin marketplace add blpsoares/parity-driven-development`, then install PDD from `/plugins` | this repo ✅ (reads `.agents/plugins/marketplace.json` + `.codex-plugin/`) |
+| **Cursor** | `npx skills add https://github.com/blpsoares/parity-driven-development`, or import as a **Team Marketplace** | this repo ✅ (reads `.cursor-plugin/`) |
+| **Gemini CLI** | `gemini extensions install https://github.com/blpsoares/parity-driven-development` | this repo ✅ |
+| **Pi** | `pi install git:github.com/blpsoares/parity-driven-development` | this repo ✅ |
+| **Kimi Code** | `/plugins install https://github.com/blpsoares/parity-driven-development` | this repo ✅ (reads `.kimi-plugin/`) |
+| **OpenCode** | add `pdd@git+https://…` to `opencode.json` `plugin` array | this repo ✅ (reads `.opencode/`) |
+
+> **On "official marketplaces":** the Codex and Cursor *in-app catalogs* (`/plugins` browse, Cursor's
+> plugin search) list plugins their teams have curated — getting PDD **listed** there is an optional
+> submission. It is **not** required to install: `codex plugin marketplace add <repo>` and Cursor's
+> Team-Marketplace repo import (or `npx skills add <repo>`) install straight from this repo today.
+
+### Command-file fallback (works in any agent, no plugin system needed)
+
+Run from **the project you're refactoring/porting** — needs `git` + **Node or Bun** (no npm):
 
 ```bash
 cd /path/to/your-target-project
-curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <claude|codex|cursor|copilot|gemini|all>
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <codex|cursor|copilot|gemini|all> [--global | --private]
+# or, with the CLI already installed:
+pdd adapt <harness> [--global | --private]     # one harness
+pdd init                                        # interactive picker: agents + scope
 ```
 
-Already have the CLI? **`pdd init`** (alias: `pdd install`) opens an interactive picker
-(specify-init style) — select your agents and scope, and it installs into each.
+This writes the `SKILL.md` command files into the agent's native skill directory
+(`.agents/skills/` for Codex, `.cursor/skills/`, `.github/skills/` for Copilot, `.gemini/skills/`)
+and, for non-Claude agents, an always-on rule that keeps update-awareness working.
 
-**Per agent** — expand your agent:
+### Install scopes (apply to the command-file path)
 
-<details>
-<summary><b>Claude Code</b> — native plugin</summary>
+| Scope | What it means | Flag |
+|---|---|---|
+| **project — shared** | committed to the repo so **every collaborator** gets PDD | *(default)* |
+| **project — just me** | written into the project but added to `.gitignore` (personal, not shared) | `--private` |
+| **global** | your home config, available in **every project** | `--global` |
 
-```bash
-/plugin marketplace add blpsoares/parity-driven-development
-claude plugin install pdd@parity-driven-development --scope project
-```
-
-Invoke with `/audit-bootstrap`, `/audit-new`, … Installs as a first-class plugin (skills + `pdd` CLI + the opt-in SessionStart tip).
-</details>
-
-<details>
-<summary><b>Codex</b></summary>
-
-```bash
-curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- codex
-# or, if you have the CLI:  pdd adapt codex        (add --global for ~/.agents/skills)
-```
-
-Writes to **`.agents/skills/audit-*/SKILL.md`** in the project. Codex's older `~/.codex/prompts`
-custom-prompt mechanism is deprecated by OpenAI in favor of this. Open the `/skills` menu to pick a
-command explicitly, or just describe the task — Codex matches skills by description too.
-</details>
+Native plugin managers use their own scope model (e.g. Claude's `--scope project | user`); the
+three scopes above govern the command-file path (`pdd adapt` / shell installer / `pdd init`).
 
 <details>
-<summary><b>Cursor</b></summary>
-
-```bash
-curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cursor
-# or:  pdd adapt cursor        (add --global for ~/.cursor)
-```
-
-Writes to **`.cursor/skills/audit-*/SKILL.md`** in the project (committable, shared with your
-team; add `--global` for `~/.cursor/skills`). Invoke with `/audit-new`, or just describe the task —
-Cursor matches skills by description too.
-</details>
-
-<details>
-<summary><b>GitHub Copilot</b> (CLI, VS Code, JetBrains)</summary>
-
-```bash
-curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- copilot
-# or:  pdd adapt copilot        (add --global for ~/.copilot/skills)
-```
-
-Writes to **`.github/skills/audit-*/SKILL.md`** in the project (`~/.copilot/skills` globally —
-note the directory name changes between project and global scope). In Copilot CLI, run
-`/skills reload` then `/skills info audit-new` to confirm; in VS Code/JetBrains Copilot Chat it's
-picked up automatically.
-</details>
-
-<details>
-<summary><b>Gemini CLI</b></summary>
-
-```bash
-curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- gemini
-# or:  pdd adapt gemini         (add --global for ~/.gemini/skills)
-```
-
-Writes to **`.gemini/skills/audit-*/SKILL.md`**. Run `/skills reload` after installing.
-</details>
-
-<details>
-<summary><b>Antigravity / any other agent</b></summary>
+<summary><b>Antigravity / any other agent — manual fallback</b></summary>
 
 Tell the agent to *fetch and follow* [`INSTALL.md`](INSTALL.md), or point it at [`AGENTS.md`](AGENTS.md)
 + the `skills/` directory — the SKILL.md files are self-contained instructions. Where a file says

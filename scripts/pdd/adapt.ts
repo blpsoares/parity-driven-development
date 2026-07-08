@@ -166,6 +166,29 @@ export function writeRules(harness: Harness, projectRoot: string): string | null
 }
 
 /**
+ * Add patterns to the project's `.gitignore` under a managed header (idempotent).
+ * Used by "just-me" (private) installs so a developer's personal PDD command files
+ * live in the project but never get committed. Returns the `.gitignore` path if it
+ * changed, else null.
+ */
+export function addToGitignore(projectRoot: string, patterns: string[]): string | null {
+  const giPath = join(projectRoot, ".gitignore");
+  const existing = existsSync(giPath) ? readFileSync(giPath, "utf8") : "";
+  const present = new Set(existing.split("\n").map((l) => l.trim()));
+  const toAdd: string[] = [];
+  for (const p of patterns) {
+    if (present.has(p)) continue;
+    present.add(p); // also dedupes repeats within `patterns`
+    toAdd.push(p);
+  }
+  if (toAdd.length === 0) return null;
+  const header = "# PDD — private (just-me) install; personal command files, not shared";
+  const next = (existing.trim() ? existing.trimEnd() + "\n\n" : "") + header + "\n" + toAdd.join("\n") + "\n";
+  writeFileSync(giPath, next);
+  return giPath;
+}
+
+/**
  * Refuse to write project-scoped files into $HOME. Without this, running the
  * installer from outside a project (e.g. `pdd adapt codex` from `~`) silently
  * scatters AGENTS.md / .cursor / .gemini / .agents/skills into the user's
@@ -181,13 +204,25 @@ export function assertSafeProjectRoot(projectRoot: string, global: boolean): voi
   }
 }
 
-/** Generate all command files (and the always-on rule) for a harness. */
+/**
+ * Generate all command files (and the always-on rule) for a harness.
+ *
+ * Scope is one of three:
+ *  - project-shared (default): files under the project root, meant to be committed
+ *    so every collaborator gets PDD.
+ *  - just-me (`priv: true`): same project paths, but the skill dir (and any dedicated
+ *    rule file) is added to `.gitignore` so it stays personal. Shared instructions
+ *    files (AGENTS.md / GEMINI.md) are left untouched in this mode — they can't be
+ *    partially ignored.
+ *  - global (`global: true`): files under the user's home config, for every project.
+ */
 export function adaptAll(
   harness: Harness,
-  opts: { skillsDir: string; projectRoot: string; global: boolean; rules?: boolean },
+  opts: { skillsDir: string; projectRoot: string; global: boolean; rules?: boolean; priv?: boolean },
 ): string[] {
   assertSafeProjectRoot(opts.projectRoot, opts.global);
   const base = baseDirFor(opts.projectRoot, opts.global);
+  const priv = !!opts.priv && !opts.global;
   const written: string[] = [];
   for (const skill of readSkills(opts.skillsDir)) {
     const { relPath, content } = renderSkillFor(harness, skill, opts.global);
@@ -196,9 +231,19 @@ export function adaptAll(
     writeFileSync(target, content);
     written.push(target);
   }
-  if (opts.rules !== false) {
+  // Skip block-mode rules (shared AGENTS.md/GEMINI.md) for private installs — a
+  // marked block in a shared file can't be gitignored without hiding the whole file.
+  const ruleTarget = rulesTargetFor(harness);
+  const wantRules = opts.rules !== false && !(priv && ruleTarget?.mode === "block");
+  if (wantRules) {
     const rulePath = writeRules(harness, opts.projectRoot);
     if (rulePath) written.push(rulePath);
+  }
+  if (priv) {
+    const patterns = [`${PROJECT_SKILL_DIR[harness]}/`];
+    if (ruleTarget?.mode === "overwrite") patterns.push(ruleTarget.relPath);
+    const gi = addToGitignore(opts.projectRoot, patterns);
+    if (gi) written.push(gi);
   }
   return written;
 }

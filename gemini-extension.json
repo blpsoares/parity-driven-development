@@ -1,0 +1,6 @@
+{
+  "name": "pdd",
+  "description": "PDD (Parity-Driven Development) — refactor/rewrite/port legacy systems with tracked behavioral parity. Skills: /audit-bootstrap, /audit-new, /audit-investigate, /audit-resolve, /audit-compare, /audit-qa, /audit-pr, /audit-status.",
+  "version": "2.1.0",
+  "contextFileName": "GEMINI.md"
+}

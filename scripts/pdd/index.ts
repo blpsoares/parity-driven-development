@@ -193,6 +193,7 @@ async function runInit(args: string[]): Promise<void> {
 
   let targets: Harness[];
   let global = args.includes("--global");
+  let priv = args.includes("--private");
 
   // Non-interactive: explicit harness args, a piped stdin, or an explicit scope flag.
   if (explicit.length > 0 || !process.stdin.isTTY || args.includes("--global")) {
@@ -217,20 +218,25 @@ async function runInit(args: string[]): Promise<void> {
 
     const scope = await runMenu(
       "Install scope?",
-      [{ label: "project", hint: projectRoot }, { label: "global", hint: "your home config" }],
+      [
+        { label: "project (shared)", hint: "committed — every collaborator gets PDD" },
+        { label: "project (just me)", hint: "in the project but gitignored — personal" },
+        { label: "global", hint: "your home config — every project" },
+      ],
       { multi: false },
     );
     if (scope === null) {
       process.stdout.write("Cancelled — nothing installed.\n");
       return;
     }
-    global = scope[0] === 1;
+    priv = scope[0] === 1;
+    global = scope[0] === 2;
   }
 
   process.stdout.write("\n");
   for (const harness of targets) {
-    const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
-    const where = global ? "home config" : "project";
+    const written = adaptAll(harness, { skillsDir, projectRoot, global, priv, rules: !args.includes("--no-rules") });
+    const where = global ? "home config" : priv ? "project (gitignored)" : "project (shared)";
     process.stdout.write(`✅ ${harness} → ${written.length} command(s) in ${where}\n`);
   }
   process.stdout.write("\nInvoke /audit-bootstrap in your agent to begin.\n");
@@ -266,16 +272,20 @@ async function main(argv: string[]): Promise<void> {
     const harness = args[1] as Harness;
     if (!harnesses.includes(harness)) {
       process.stdout.write(
-        `Usage: pdd adapt <${harnesses.join("|")}> [--global] [project-dir]\n` +
-          "Generates PDD slash-command / prompt files for that agent from the canonical skills.\n",
+        `Usage: pdd adapt <${harnesses.join("|")}> [--global | --private] [--no-rules] [project-dir]\n` +
+          "Generates PDD slash-command / prompt files for that agent from the canonical skills.\n" +
+          "  (default)   project scope, shared — commit the files so collaborators get PDD\n" +
+          "  --private   project scope, just me — writes the files but adds them to .gitignore\n" +
+          "  --global    home config — available in every project\n",
       );
       process.exitCode = 1;
       return;
     }
     const global = args.includes("--global");
+    const priv = args.includes("--private");
     const projectRoot = args.slice(2).find((a) => !a.startsWith("-")) ?? process.cwd();
     const skillsDir = SKILLS_DIR;
-    const written = adaptAll(harness, { skillsDir, projectRoot, global, rules: !args.includes("--no-rules") });
+    const written = adaptAll(harness, { skillsDir, projectRoot, global, priv, rules: !args.includes("--no-rules") });
     if (written.length === 0) {
       process.stdout.write("No skills found to adapt.\n");
     } else {

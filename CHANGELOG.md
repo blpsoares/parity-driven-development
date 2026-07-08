@@ -6,6 +6,28 @@ All notable changes to PDD are documented here. This project follows
 ## [Unreleased]
 
 ### Added
+- **Native plugin manifests for every supported harness.** Alongside the Claude Code plugin, PDD now
+  ships the manifests each harness's own plugin manager reads, so it installs natively from the repo:
+  `.codex-plugin/plugin.json` (Codex), `.cursor-plugin/plugin.json` (Cursor),
+  `.agents/plugins/marketplace.json` (Factory Droid), `gemini-extension.json` + `GEMINI.md`
+  (Gemini CLI), `.pi/extensions/pdd.ts` (Pi), `.kimi-plugin/plugin.json` (Kimi Code), and
+  `.opencode/plugins/pdd.js` + `.opencode/INSTALL.md` (OpenCode).
+- **Cross-harness SessionStart hook.** A polyglot `hooks/run-hook.cmd` + `hooks/session-start`
+  make PDD's update-awareness work outside Claude Code (e.g. Cursor via `hooks/hooks-cursor.json`).
+  `scripts/session-update-check.sh` is now harness-agnostic — it derives the plugin root from the
+  environment or its own location and emits the context-injection JSON each platform expects
+  (`additional_context` for Cursor, `hookSpecificOutput` for Claude Code, `additionalContext`
+  otherwise). Copilot and Antigravity install via the existing
+  `.claude-plugin/` manifests. Codex installs from the repo with
+  `codex plugin marketplace add blpsoares/parity-driven-development` (reads
+  `.agents/plugins/marketplace.json` + `.codex-plugin/`); Cursor installs via `npx skills add`
+  or a Team-Marketplace repo import (reads `.cursor-plugin/`). Getting listed in the Codex/Cursor
+  in-app catalogs is an optional, separate marketplace submission — not required to install.
+- **Third install scope — "just me" (`--private`).** `pdd adapt <harness> --private` and the
+  `pdd init` picker now offer a personal, project-local install: the command files are written into
+  the project but added to `.gitignore` (and no shared `AGENTS.md`/`GEMINI.md` block is touched), so
+  a developer can use PDD without committing it. Complements the existing project-shared (default)
+  and `--global` scopes.
 - **Complete documentation set (`docs/`, Diátaxis).** Single-source markdown: 6 concept
   deep-dives (the *why*), 4 reference pages (commands, `.audit/` structure, configuration,
   the `pdd` CLI), 7 task-oriented guides, and 4 install pages — plus a `docs/` index. The

@@ -9,7 +9,8 @@ set -euo pipefail
 
 [ "${PDD_NO_UPDATE_CHECK:-}" = "1" ] && exit 0
 
-root="${CLAUDE_PLUGIN_ROOT:-}"
+root="${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}"
+[ -n "$root" ] || root="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
 manifest="${root}/.claude-plugin/plugin.json"
 [ -f "$manifest" ] || exit 0
 
@@ -42,6 +43,23 @@ notified="${HOME}/.pdd/notified"
 mkdir -p "${HOME}/.pdd"
 echo "$latest" > "$notified"
 
-msg="PDD update available: version ${latest} is out (this project has ${installed}). Proactively tell the user in one short line, then offer two things: (1) summarize what changed — read the plugin CHANGELOG at ${root}/CHANGELOG.md; (2) update PDD for them. If they agree to update, run: claude plugin update pdd@parity-driven-development, then suggest running 'pdd init' to refresh any Codex/Cursor/Copilot/Gemini command files, and confirm success. If they decline, drop it and do not bring it up again this session."
+# The update command differs by harness: Claude Code has a native plugin update;
+# everyone else refreshes via the `pdd` CLI (or by re-running the installer).
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  how_to_update="run: claude plugin update pdd@parity-driven-development, then suggest running 'pdd init' to refresh any Codex/Cursor/Copilot/Gemini command files"
+else
+  how_to_update="run: pdd update (or re-run the installer for your agent), which refreshes the command files"
+fi
 
-printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$msg"
+msg="PDD update available: version ${latest} is out (this project has ${installed}). Proactively tell the user in one short line, then offer two things: (1) summarize what changed — read the CHANGELOG at ${root}/CHANGELOG.md; (2) update PDD for them. If they agree to update, ${how_to_update}, and confirm success. If they decline, drop it and do not bring it up again this session."
+
+# Emit context-injection JSON in the field the current platform consumes:
+# Cursor → additional_context; Claude Code → hookSpecificOutput.additionalContext;
+# Copilot CLI / others → additionalContext (SDK standard).
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+  printf '{"additional_context":"%s"}\n' "$msg"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$msg"
+else
+  printf '{"additionalContext":"%s"}\n' "$msg"
+fi
