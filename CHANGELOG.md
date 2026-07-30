@@ -5,6 +5,14 @@ All notable changes to PDD are documented here. This project follows
 
 ## [Unreleased]
 
+### Fixed
+- **`pdd adapt` / `pdd init` now install each skill's templates.** They wrote only `SKILL.md`, so
+  `audit-compare`, `audit-pr`, `audit-bootstrap`, `audit-new`, `audit-investigate`, `audit-resolve`
+  and `audit-qa` landed referencing `template.md` / `template-pr-body.md` / `template-test-card.md`
+  files that were never copied — broken on a fresh non-plugin install, and stale on re-runs.
+  Sibling files are now copied alongside the skill; markdown gets the same "de-Claude" pass the
+  skill body does, anything else is copied byte-for-byte.
+
 ### Added
 - **CLI-only install target.** `install.sh cli` (i.e.
   `curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cli`) installs just the `pdd` dashboard

@@ -14,6 +14,8 @@ import {
   assertSafeProjectRoot,
   addToGitignore,
   adaptAll,
+  readSkillAssets,
+  renderAssetFor,
 } from "./adapt";
 
 const SAMPLE = `---
@@ -142,6 +144,58 @@ test("adaptAll writes no rules file for claude, only the skill files", () => {
     expect(written).toEqual([join(projectRoot, ".claude/skills/audit-new/SKILL.md")]);
     expect(existsSync(join(projectRoot, "CLAUDE.md"))).toBe(false);
     expect(existsSync(join(projectRoot, "AGENTS.md"))).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("readSkillAssets lists sibling files, never SKILL.md", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pdd-assets-test-"));
+  try {
+    writeFileSync(join(dir, "SKILL.md"), SAMPLE);
+    writeFileSync(join(dir, "template.md"), "# T");
+    writeFileSync(join(dir, "template-pr-body.md"), "# PR");
+    mkdirSync(join(dir, "nested"));
+    expect(readSkillAssets(dir)).toEqual(["template-pr-body.md", "template.md"]);
+    expect(readSkillAssets(join(dir, "missing"))).toEqual([]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("renderAssetFor neutralizes markdown for non-claude harnesses only", () => {
+  const src = "Claude Code runs this. Claude never pushes. Use $ARGUMENTS.";
+  expect(renderAssetFor("claude", src)).toBe(src);
+  const codex = renderAssetFor("codex", src);
+  expect(codex).not.toContain("Claude");
+  expect(codex).toContain("the agent");
+  expect(codex).not.toContain("$ARGUMENTS");
+});
+
+test("adaptAll copies each skill's templates next to its SKILL.md", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pdd-adapt-assets-"));
+  try {
+    const skillsDir = join(dir, "skills", "sample-skill");
+    mkdirSync(skillsDir, { recursive: true });
+    writeFileSync(join(skillsDir, "SKILL.md"), SAMPLE);
+    writeFileSync(join(skillsDir, "template.md"), "Claude fills this in.\n");
+    const projectRoot = join(dir, "project");
+    mkdirSync(projectRoot, { recursive: true });
+
+    const written = adaptAll("claude", {
+      skillsDir: join(dir, "skills"),
+      projectRoot,
+      global: false,
+    });
+
+    const tpl = join(projectRoot, ".claude/skills/audit-new/template.md");
+    expect(written).toContain(tpl);
+    expect(readFileSync(tpl, "utf8")).toBe("Claude fills this in.\n"); // verbatim for claude
+
+    // …and neutralized for a non-claude harness.
+    adaptAll("codex", { skillsDir: join(dir, "skills"), projectRoot, global: false });
+    const codexTpl = readFileSync(join(projectRoot, ".agents/skills/audit-new/template.md"), "utf8");
+    expect(codexTpl).toBe("the agent fills this in.\n");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

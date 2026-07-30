@@ -1242,7 +1242,14 @@ function runTui(auditDir, note = "", lang = "en") {
 }
 
 // scripts/pdd/adapt.ts
-import { readFileSync as readFileSync2, readdirSync as readdirSync2, existsSync as existsSync2, mkdirSync, writeFileSync } from "node:fs";
+import {
+  readFileSync as readFileSync2,
+  readdirSync as readdirSync2,
+  existsSync as existsSync2,
+  mkdirSync,
+  writeFileSync,
+  copyFileSync
+} from "node:fs";
 import { join as join2, resolve as resolve2 } from "node:path";
 import { homedir } from "node:os";
 function parseSkill(md) {
@@ -1293,10 +1300,18 @@ function readSkills(skillsDir) {
   if (!existsSync2(skillsDir)) return [];
   const out = [];
   for (const entry of readdirSync2(skillsDir)) {
-    const file = join2(skillsDir, entry, "SKILL.md");
-    if (existsSync2(file)) out.push(parseSkill(readFileSync2(file, "utf8")));
+    const dir = join2(skillsDir, entry);
+    const file = join2(dir, "SKILL.md");
+    if (existsSync2(file)) out.push({ ...parseSkill(readFileSync2(file, "utf8")), dir });
   }
   return out.filter((s) => s.name);
+}
+function readSkillAssets(skillDir) {
+  if (!skillDir || !existsSync2(skillDir)) return [];
+  return readdirSync2(skillDir, { withFileTypes: true }).filter((e) => e.isFile() && e.name !== "SKILL.md").map((e) => e.name).sort();
+}
+function renderAssetFor(harness, content) {
+  return harness === "claude" ? content : deClaude(withArgs(content));
 }
 function rulesBody() {
   return [
@@ -1397,9 +1412,20 @@ function adaptAll(harness, opts) {
   for (const skill of readSkills(opts.skillsDir)) {
     const { relPath, content } = renderSkillFor(harness, skill, opts.global);
     const target = join2(base, relPath);
-    mkdirSync(join2(target, ".."), { recursive: true });
+    const targetDir = join2(target, "..");
+    mkdirSync(targetDir, { recursive: true });
     writeFileSync(target, content);
     written.push(target);
+    for (const asset of readSkillAssets(skill.dir ?? "")) {
+      const src = join2(skill.dir, asset);
+      const dest = join2(targetDir, asset);
+      if (asset.endsWith(".md")) {
+        writeFileSync(dest, renderAssetFor(harness, readFileSync2(src, "utf8")));
+      } else {
+        copyFileSync(src, dest);
+      }
+      written.push(dest);
+    }
   }
   const ruleTarget = rulesTargetFor(harness);
   const wantRules = opts.rules !== false && !(priv && ruleTarget?.mode === "block");

@@ -3,7 +3,14 @@
 // `skills/*/SKILL.md`, so PDD works in Codex, Cursor, Copilot, Gemini CLI, etc.
 // The pure renderers (parseSkill, renderSkillFor) are unit-tested; adaptAll does IO.
 
-import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  copyFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 
@@ -11,6 +18,8 @@ export interface Skill {
   name: string;
   description: string;
   body: string; // the SKILL.md content below the frontmatter
+  /** Source directory of this skill, set by readSkills. Used to copy its assets. */
+  dir?: string;
 }
 
 /** Parse a SKILL.md into name/description/body (small, forgiving frontmatter reader). */
@@ -87,10 +96,29 @@ export function readSkills(skillsDir: string): Skill[] {
   if (!existsSync(skillsDir)) return [];
   const out: Skill[] = [];
   for (const entry of readdirSync(skillsDir)) {
-    const file = join(skillsDir, entry, "SKILL.md");
-    if (existsSync(file)) out.push(parseSkill(readFileSync(file, "utf8")));
+    const dir = join(skillsDir, entry);
+    const file = join(dir, "SKILL.md");
+    if (existsSync(file)) out.push({ ...parseSkill(readFileSync(file, "utf8")), dir });
   }
   return out.filter((s) => s.name);
+}
+
+/**
+ * Sibling files a skill ships alongside its SKILL.md (`template.md`,
+ * `template-pr-body.md`, …). The skills reference these by relative path, so a
+ * harness install that copies only SKILL.md leaves the commands broken.
+ */
+export function readSkillAssets(skillDir: string): string[] {
+  if (!skillDir || !existsSync(skillDir)) return [];
+  return readdirSync(skillDir, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name !== "SKILL.md")
+    .map((e) => e.name)
+    .sort();
+}
+
+/** Render a skill asset for a harness — same neutralization the SKILL body gets. */
+export function renderAssetFor(harness: Harness, content: string): string {
+  return harness === "claude" ? content : deClaude(withArgs(content));
 }
 
 /**
@@ -227,9 +255,22 @@ export function adaptAll(
   for (const skill of readSkills(opts.skillsDir)) {
     const { relPath, content } = renderSkillFor(harness, skill, opts.global);
     const target = join(base, relPath);
-    mkdirSync(join(target, ".."), { recursive: true });
+    const targetDir = join(target, "..");
+    mkdirSync(targetDir, { recursive: true });
     writeFileSync(target, content);
     written.push(target);
+    // Copy the skill's assets (templates) next to it — markdown gets the same
+    // neutralization as the body; anything else is copied byte-for-byte.
+    for (const asset of readSkillAssets(skill.dir ?? "")) {
+      const src = join(skill.dir!, asset);
+      const dest = join(targetDir, asset);
+      if (asset.endsWith(".md")) {
+        writeFileSync(dest, renderAssetFor(harness, readFileSync(src, "utf8")));
+      } else {
+        copyFileSync(src, dest);
+      }
+      written.push(dest);
+    }
   }
   // Skip block-mode rules (shared AGENTS.md/GEMINI.md) for private installs — a
   // marked block in a shared file can't be gitignored without hiding the whole file.
