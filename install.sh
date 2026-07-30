@@ -7,6 +7,10 @@
 #   curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- <harness> [--global] [project-dir]
 #   ./install.sh <claude|codex|cursor|copilot|gemini|all> [--global] [project-dir]
 #
+# Use `cli` as the target to install ONLY the `pdd` dashboard CLI (no command files,
+# no project changes):
+#   curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cli
+#
 # Prereqs: git, and EITHER Node (https://nodejs.org) OR Bun (https://bun.sh).
 # No npm needed — the CLI runs from the committed dist/pdd.js (Node) or source (Bun).
 set -euo pipefail
@@ -29,7 +33,8 @@ die() { echo "pdd install: $*" >&2; exit 1; }
 
 case "$HARNESS" in
   ""|-h|--help)
-    echo "Usage: install.sh <claude|codex|cursor|copilot|gemini|all> [--global] [project-dir]"
+    echo "Usage: install.sh <claude|codex|cursor|copilot|gemini|all|cli> [--global] [project-dir]"
+    echo "       install.sh cli    # only the 'pdd' dashboard CLI, no command files"
     exit 0 ;;
   claude)
     echo "Claude Code installs natively via the plugin marketplace:"
@@ -57,7 +62,16 @@ else
   die "needs Node (https://nodejs.org) or Bun (https://bun.sh) to run the installer/CLI."
 fi
 
-# Install the `pdd` dashboard CLI wrapper (best-effort).
+# Install the `pdd` dashboard CLI wrapper.
+if [ "$HARNESS" = "cli" ]; then
+  # CLI-only install: report what happened (and fail loudly if it didn't).
+  bash "$CACHE/scripts/install-cli.sh" || die "could not install the pdd CLI wrapper."
+  echo ""
+  echo "✅ PDD CLI installed (no command files written)."
+  echo "   Run 'pdd' (interactive) or 'pdd board' — see: pdd --help"
+  echo "   To also install the /audit-* commands: install.sh <codex|cursor|copilot|gemini|all>"
+  exit 0
+fi
 bash "$CACHE/scripts/install-cli.sh" >/dev/null 2>&1 || true
 
 case "$HARNESS" in
@@ -70,7 +84,7 @@ case "$HARNESS" in
     # shellcheck disable=SC2086
     run adapt "$HARNESS" $GLOBAL "$PROJECT" ;;
   *)
-    die "unknown harness '$HARNESS' (use claude|codex|cursor|copilot|gemini|all)" ;;
+    die "unknown harness '$HARNESS' (use claude|codex|cursor|copilot|gemini|all|cli)" ;;
 esac
 
 echo ""

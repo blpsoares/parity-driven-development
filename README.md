@@ -307,6 +307,13 @@ pdd adapt <harness> [--global | --private]     # one harness
 pdd init                                        # interactive picker: agents + scope
 ```
 
+Want **only the `pdd` dashboard CLI**, without writing any command files into a project? Use `cli`
+as the target — see [Getting the `pdd` command](#getting-the-pdd-command):
+
+```bash
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cli
+```
+
 This writes the `SKILL.md` command files into the agent's native skill directory
 (`.agents/skills/` for Codex, `.cursor/skills/`, `.github/skills/` for Copilot, `.gemini/skills/`)
 and, for non-Claude agents, an always-on rule that keeps update-awareness working.
@@ -423,8 +430,14 @@ nicer way to watch progress. (`/audit-status` gives the same info in-chat with z
 ### Getting the `pdd` command
 
 The CLI ships with the plugin / repo — it runs `dist/pdd.js` on **Node**, or the source on **Bun**.
-Install the stable PATH wrapper once (Claude Code path shown; for a clone, run the same script from
-the repo):
+**CLI only, one line** (no command files, nothing written into your project — it clones the repo to
+`~/.pdd` and drops the `pdd` wrapper in `~/.local/bin`):
+
+```bash
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cli
+```
+
+Already have the plugin or a clone? Install the same PATH wrapper from there instead:
 
 ```bash
 bash ~/.claude/plugins/cache/parity-driven-development/pdd/*/scripts/install-cli.sh

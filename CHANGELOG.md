@@ -6,6 +6,11 @@ All notable changes to PDD are documented here. This project follows
 ## [Unreleased]
 
 ### Added
+- **CLI-only install target.** `install.sh cli` (i.e.
+  `curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cli`) installs just the `pdd` dashboard
+  CLI — it clones the repo to `~/.pdd` and puts the `pdd` wrapper on your PATH, without writing any
+  command files or touching the current project. Previously the wrapper could only be installed
+  from an existing clone or plugin cache via `scripts/install-cli.sh`.
 - **Native plugin manifests for every supported harness.** Alongside the Claude Code plugin, PDD now
   ships the manifests each harness's own plugin manager reads, so it installs natively from the repo:
   `.codex-plugin/plugin.json` (Codex), `.cursor-plugin/plugin.json` (Cursor),

@@ -22,6 +22,16 @@ into your home config instead of the project. This also installs the optional `p
 
 (The PDD method itself needs no runtime — this just scaffolds the command files + the optional CLI.)
 
+### CLI only
+
+To install **just the `pdd` dashboard CLI** — no command files, nothing written into the current
+project — use `cli` as the target. It clones the repo to `~/.pdd` (override with `PDD_HOME`) and
+installs the `pdd` wrapper into `~/.local/bin`:
+
+```bash
+curl -fsSL https://pdd.openvibes.tech/cli | bash -s -- cli
+```
+
 ## Per-agent native install
 
 Codex, Gemini CLI and Copilot CLI all discover the same convergent convention —
