@@ -9,7 +9,7 @@
     "pdd": "bun run scripts/pdd/index.ts",
     "test": "bun test scripts/pdd"
   },
-  "author": "Bryan Soares",
+  "author": "blpsoares",
   "license": "MIT",
   "devDependencies": {
     "esbuild": "^0.28.1"
